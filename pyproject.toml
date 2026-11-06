@@ -8,10 +8,14 @@ dependencies = [
     "aiokafka>=0.15.0",
     "alembic>=1.20.1",
     "asyncpg>=0.32.0",
+    "cryptography>=50.0.2",
     "fastapi>=0.162.0",
     "httpx>=0.28.1",
+    "langchain>=1.4.9",
+    "langchain-anthropic>=1.7.10",
     "pydantic>=2",
     "pydantic-settings>=2.16.2",
+    "pyjwt>=2.15.1",
     "sqlalchemy[asyncio]>=2.1.8",
     "uvicorn[standard]>=0.54.0",
 ]
@@ -22,6 +26,7 @@ dev = [
     "pytest-asyncio>=1.4.1.post1",
     "respx>=0.23.1",
     "ruff>=0.17.4",
+    "testcontainers[kafka,postgres]>=4.15.0",
 ]
 
 [build-system]
@@ -41,4 +46,6 @@ select = ["E", "F", "I", "UP", "B", "ASYNC"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = ["integration: needs Docker (Testcontainers)"]
 testpaths = ["tests"]
