@@ -1,0 +1,92 @@
+# Defaults. values-kind.yaml (local/CI) and values-eks.yaml (production) override these.
+
+image:
+  # Images are <registry>/<name>:<tag>; an empty registry means local images (kind).
+  registry: ghcr.io/dhvanil3103
+  tag: latest
+  pullPolicy: IfNotPresent
+  api: pr-copilot-api
+  worker: pr-copilot-worker
+  frontend: pr-copilot-frontend
+imagePullSecrets: []
+
+# Secret values never live in this chart. Create this Secret yourself (docs/DEPLOY_EKS.md)
+# with the keys: github-webhook-secret, github-app-id, github-private-key,
+# anthropic-api-key, postgres-password.
+existingSecret: pr-copilot-secrets
+
+config:
+  logLevel: INFO
+  githubApiUrl: https://api.github.com
+  anthropicBaseUrl: https://api.anthropic.com
+  defaultModel: claude-haiku-4-5
+  reviewAgentModel: ""
+  testAgentModel: ""
+  maxInlineComments: "15"
+  workerMaxAttempts: "3"
+
+api:
+  replicas: 1
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+
+worker:
+  # Must not exceed kafka.partitions: extra consumers in the group would sit idle.
+  replicas: 1
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 512Mi }
+
+frontend:
+  replicas: 1
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+    limits: { cpu: 200m, memory: 64Mi }
+
+migrations:
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+
+postgres:
+  image: postgres:16.6-alpine
+  storage: 2Gi
+  # Small on purpose: the node group has about 8 GiB for everything.
+  sharedBuffers: 64MB
+  maxConnections: "40"
+  resources:
+    requests: { cpu: 50m, memory: 256Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+
+kafka:
+  image: apache/kafka:3.9.0
+  storage: 2Gi
+  partitions: 3
+  # Fixed so the broker reuses its formatted storage after a restart.
+  clusterId: 4L6g3nShT-eMCtK--X86sw
+  # JVM heap stays well under the memory limit to leave room for page cache and metaspace.
+  heapOpts: -Xms256m -Xmx256m
+  resources:
+    requests: { cpu: 100m, memory: 512Mi }
+    limits: { cpu: "1", memory: 768Mi }
+
+persistence:
+  # Empty uses the cluster's default StorageClass. On EKS this is the gp3 class
+  # from infra/k8s/gp3-storageclass.yaml (EBS CSI driver).
+  storageClassName: ""
+  # StatefulSet PVCs normally survive `helm uninstall` and keep billing as EBS volumes.
+  deleteOnUninstall: true
+
+ingress:
+  enabled: false
+  className: nginx
+  # Leave empty to serve on the load balancer's DNS name over HTTP.
+  host: ""
+  tls:
+    enabled: false
+    secretName: pr-copilot-tls
+    clusterIssuer: letsencrypt
+
+networkPolicy:
+  enabled: true

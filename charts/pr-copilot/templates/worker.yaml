@@ -1,0 +1,62 @@
+{{- if gt (int .Values.worker.replicas) (int .Values.kafka.partitions) }}
+{{- fail "worker.replicas must not exceed kafka.partitions; extra consumers would be idle" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pr-copilot.fullname" . }}-worker
+  labels:
+    {{- include "pr-copilot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "pr-copilot.selectorLabels" (list . "worker") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "pr-copilot.selectorLabels" (list . "worker") | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- include "pr-copilot.imagePullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- include "pr-copilot.podSecurityContext" . | nindent 8 }}
+      # Give an in-flight review time to finish; uncommitted messages are redelivered anyway.
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker
+          image: {{ include "pr-copilot.image" (list . .Values.image.worker) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          envFrom:
+            - configMapRef: { name: {{ include "pr-copilot.fullname" . }}-config }
+          env:
+            {{- include "pr-copilot.databaseEnv" . | nindent 12 }}
+            - name: GITHUB_APP_ID
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.existingSecret }}, key: github-app-id }
+            - name: GITHUB_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.existingSecret }}, key: github-private-key }
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.existingSecret }}, key: anthropic-api-key }
+          # No HTTP server: worker/main.py touches this file every 10 seconds.
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", 'test -n "$(find /tmp/worker-heartbeat -mmin -1)"']
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          readinessProbe:
+            exec:
+              command: ["test", "-f", "/tmp/worker-heartbeat"]
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          securityContext:
+            {{- include "pr-copilot.containerSecurityContext" . | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }

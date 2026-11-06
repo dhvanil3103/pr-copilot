@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars (git-ignored) and fill in.
+region       = "us-east-1"
+cluster_name = "pr-copilot"
+budget_email = "you@example.com"
+github_repo  = "dhvanil3103/pr-copilot"
+
+# Your public IP (curl -s https://checkip.amazonaws.com) plus GitHub Actions'
+# ranges if you want to restrict the API endpoint; 0.0.0.0/0 keeps CI working.
+cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"]
+
+# node_count         = 2
+# node_instance_type = "t4g.medium"
+# use_spot           = false
+# budget_start       = "2026-11-01_00:00"

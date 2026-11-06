@@ -1,0 +1,8 @@
+PR Copilot is installed in namespace {{ .Release.Namespace }}.
+
+{{- if .Values.ingress.enabled }}
+Dashboard:  http://{{ .Values.ingress.host | default "<load balancer DNS name>" }}/
+Webhook:    http://{{ .Values.ingress.host | default "<load balancer DNS name>" }}/webhooks/github
+{{- else }}
+Port-forward the API:  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "pr-copilot.fullname" . }}-api 8000:8000
+{{- end }}

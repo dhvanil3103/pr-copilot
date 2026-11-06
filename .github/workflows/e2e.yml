@@ -1,0 +1,44 @@
+name: E2E
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  kind:
+    # Whole system on a kind cluster against the mock GitHub and Anthropic APIs.
+    # Needs no secrets: scripts/e2e_kind.sh generates throwaway ones.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.7.19"
+          enable-cache: true
+      - run: uv sync --frozen
+      - uses: azure/setup-helm@v5
+        with:
+          version: v4.3.1
+      - uses: helm/kind-action@v1
+        with:
+          version: v0.33.0
+          kubectl_version: v1.37.2
+          cluster_name: pr-copilot
+      - name: Build, deploy and smoke test
+        run: scripts/e2e_kind.sh
+      - name: Diagnostics
+        if: failure()
+        run: |
+          kubectl -n pr-copilot get pods,jobs,events
+          for d in prc-pr-copilot-api prc-pr-copilot-worker mock-github mock-anthropic; do
+            echo "--- $d"; kubectl -n pr-copilot logs "deploy/$d" --tail=100 || true
+          done

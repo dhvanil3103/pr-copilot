@@ -1,0 +1,15 @@
+# Production on EKS (Graviton nodes). The deploy workflow sets image.tag to the commit SHA.
+image:
+  registry: ghcr.io/dhvanil3103
+
+persistence:
+  # Created once by an admin from infra/k8s/gp3-storageclass.yaml.
+  storageClassName: gp3
+
+ingress:
+  enabled: true
+  className: nginx
+  host: ""
+  tls:
+    # Needs a host and cert-manager with a ClusterIssuer; see docs/DEPLOY_EKS.md.
+    enabled: false

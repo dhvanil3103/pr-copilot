@@ -1,8 +1,9 @@
+import asyncio
 import logging
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.admin import AIOKafkaAdminClient, NewTopic
-from aiokafka.errors import TopicAlreadyExistsError
+from aiokafka.errors import KafkaError, TopicAlreadyExistsError
 
 from shared.config import Settings
 
@@ -10,7 +11,25 @@ log = logging.getLogger(__name__)
 
 
 async def ensure_topics(settings: Settings) -> None:
-    """Create the main and dead letter topics if missing. Safe to call repeatedly."""
+    """Create the main and dead letter topics if missing. Safe to call repeatedly.
+
+    Retries while the broker is unreachable, because in Kubernetes the API and
+    worker usually start before Kafka is ready; crash-looping would also work
+    but makes real failures harder to spot.
+    """
+    for attempt in range(1, settings.kafka_startup_attempts + 1):
+        try:
+            await _create_topics(settings)
+            return
+        except KafkaError as exc:
+            if attempt == settings.kafka_startup_attempts:
+                raise
+            delay = min(2 * attempt, 10)
+            log.warning("Kafka not ready (%s), retrying in %ss", exc, delay)
+            await asyncio.sleep(delay)
+
+
+async def _create_topics(settings: Settings) -> None:
     admin = AIOKafkaAdminClient(bootstrap_servers=settings.kafka_bootstrap_servers)
     await admin.start()
     try:
