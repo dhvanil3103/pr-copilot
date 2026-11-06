@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pr-copilot.fullname" . }}-frontend
+  labels:
+    {{- include "pr-copilot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      {{- include "pr-copilot.selectorLabels" (list . "frontend") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "pr-copilot.selectorLabels" (list . "frontend") | nindent 8 }}
+    spec:
+      {{- include "pr-copilot.imagePullSecrets" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101  # nginx user in the unprivileged image
+        runAsGroup: 101
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: frontend
+          image: {{ include "pr-copilot.image" (list . .Values.image.frontend) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - { name: http, containerPort: 8080 }
+          env:
+            - name: API_UPSTREAM
+              value: "http://{{ include "pr-copilot.fullname" . }}-api:8000"
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
+          securityContext:
+            {{- include "pr-copilot.containerSecurityContext" . | nindent 12 }}
+          # Writable paths for a read-only root: the entrypoint renders the
+          # config template into conf.d, and nginx keeps temp files in /tmp.
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: conf, mountPath: /etc/nginx/conf.d }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        - { name: conf, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pr-copilot.fullname" . }}-frontend
+  labels:
+    {{- include "pr-copilot.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "pr-copilot.selectorLabels" (list . "frontend") | nindent 4 }}
+  ports:
+    - { name: http, port: 8080, targetPort: http }

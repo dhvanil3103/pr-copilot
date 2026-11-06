@@ -1,0 +1,16 @@
+# Local kind cluster and the e2e workflow: locally built images, mock APIs.
+image:
+  registry: ""
+  tag: e2e
+  pullPolicy: Never
+
+config:
+  # Mock servers deployed by the e2e workflow from tests/e2e/k8s (same namespace).
+  githubApiUrl: http://mock-github:8080
+  anthropicBaseUrl: http://mock-anthropic:8080
+
+persistence:
+  storageClassName: standard
+
+ingress:
+  enabled: false

@@ -1,0 +1,43 @@
+{{- if .Values.networkPolicy.enabled }}
+# Only the API, the worker and the migration job may reach Postgres; only the API
+# and the worker may reach Kafka. Everything else in the cluster is denied.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pr-copilot.fullname" . }}-postgres
+  labels:
+    {{- include "pr-copilot.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pr-copilot.selectorLabels" (list . "postgres") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - { key: app.kubernetes.io/instance, operator: In, values: [{{ .Release.Name }}] }
+              - { key: app.kubernetes.io/component, operator: In, values: [api, worker, migrate] }
+      ports:
+        - { port: 5432, protocol: TCP }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pr-copilot.fullname" . }}-kafka
+  labels:
+    {{- include "pr-copilot.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pr-copilot.selectorLabels" (list . "kafka") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - { key: app.kubernetes.io/instance, operator: In, values: [{{ .Release.Name }}] }
+              - { key: app.kubernetes.io/component, operator: In, values: [api, worker] }
+      ports:
+        - { port: 9092, protocol: TCP }
+{{- end }}

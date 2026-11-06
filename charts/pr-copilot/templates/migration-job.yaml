@@ -1,0 +1,46 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "pr-copilot.fullname" . }}-migrate
+  labels:
+    {{- include "pr-copilot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    # pre-upgrade: schema changes land before new pods roll out.
+    # post-install (not pre-install): on the first install Postgres is part of this
+    # release, so it does not exist yet when pre-install hooks run.
+    "helm.sh/hook": post-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        {{- include "pr-copilot.selectorLabels" (list . "migrate") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      {{- include "pr-copilot.imagePullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- include "pr-copilot.podSecurityContext" . | nindent 8 }}
+      initContainers:
+        - name: wait-for-postgres
+          image: {{ .Values.postgres.image }}
+          command: ["sh", "-c", "until pg_isready -h {{ include "pr-copilot.postgresHost" . }} -U prcopilot; do sleep 2; done"]
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+          securityContext:
+            {{- include "pr-copilot.containerSecurityContext" . | nindent 12 }}
+      containers:
+        - name: migrate
+          image: {{ include "pr-copilot.image" (list . .Values.image.api) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["alembic", "upgrade", "head"]
+          env:
+            {{- include "pr-copilot.databaseEnv" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
+          securityContext:
+            {{- include "pr-copilot.containerSecurityContext" . | nindent 12 }}

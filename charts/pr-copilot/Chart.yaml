@@ -1,0 +1,6 @@
+apiVersion: v2
+name: pr-copilot
+description: AI pull request reviewer (API, worker, dashboard, Postgres, Kafka)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
