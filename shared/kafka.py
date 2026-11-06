@@ -43,6 +43,10 @@ def make_consumer(settings: Settings) -> AIOKafkaConsumer:
         # Offsets are committed manually, only after processing finishes.
         enable_auto_commit=False,
         auto_offset_reset="earliest",
+        # One review (two agents plus retries) can take minutes; without this the
+        # broker would assume the worker died and rebalance mid-review.
+        max_poll_interval_ms=settings.kafka_max_poll_interval_ms,
+        max_poll_records=1,
     )
 
 

@@ -2,16 +2,30 @@ import asyncio
 import logging
 import signal
 
-from pydantic import ValidationError
+from aiokafka import AIOKafkaProducer, TopicPartition
 
 from shared.config import get_settings
 from shared.db import make_engine, make_session_factory
-from shared.events import PullRequestEventV1
-from shared.kafka import ensure_topics, make_consumer
-from shared.logging import configure_logging, review_id
-from worker.processor import process_event
+from shared.kafka import ensure_topics, make_consumer, make_producer
+from shared.logging import configure_logging
+from worker.agents.langchain_runner import LangChainAgentRunner
+from worker.consumer import handle_message
+from worker.github import GitHubAppClient
+from worker.processor import WorkerDeps
 
 log = logging.getLogger(__name__)
+
+
+def dead_letter_publisher(producer: AIOKafkaProducer, topic: str, key: bytes | None):
+    async def publish(value: bytes, error: str, attempts: int) -> None:
+        await producer.send_and_wait(
+            topic,
+            key=key,
+            value=value,
+            headers=[("error", error.encode()), ("attempts", str(attempts).encode())],
+        )
+
+    return publish
 
 
 async def run() -> None:
@@ -20,8 +34,19 @@ async def run() -> None:
     await ensure_topics(settings)
 
     engine = make_engine(settings.database_url)
-    session_factory = make_session_factory(engine)
+    github = GitHubAppClient(
+        settings.github_app_id, settings.github_private_key, settings.github_api_url
+    )
+    # The only place real implementations are chosen; everything below takes interfaces.
+    deps = WorkerDeps(
+        settings=settings,
+        session_factory=make_session_factory(engine),
+        github=github,
+        runner=LangChainAgentRunner(settings),
+    )
+    producer = make_producer(settings)
     consumer = make_consumer(settings)
+    await producer.start()
     await consumer.start()
 
     stop = asyncio.Event()
@@ -33,21 +58,18 @@ async def run() -> None:
     try:
         while not stop.is_set():
             batch = await consumer.getmany(timeout_ms=1000)
-            for messages in batch.values():
+            for tp, messages in batch.items():
                 for message in messages:
-                    try:
-                        event = PullRequestEventV1.model_validate_json(message.value)
-                    except ValidationError:
-                        # Retrying cannot fix a malformed message; DLQ handling comes later.
-                        log.exception("dropping malformed message at offset %s", message.offset)
-                        await consumer.commit()
-                        continue
-                    review_id.set(event.review_id)
-                    await process_event(event, session_factory)
-                    # Commit only after processing finished, so a crash replays the message.
-                    await consumer.commit()
+                    dlq = dead_letter_publisher(producer, settings.kafka_dlq_topic, message.key)
+                    await handle_message(message.value, deps, dlq)
+                    # Commit only after the message is fully handled (done or dead-lettered).
+                    await consumer.commit(
+                        {TopicPartition(tp.topic, tp.partition): message.offset + 1}
+                    )
     finally:
         await consumer.stop()
+        await producer.stop()
+        await github.aclose()
         await engine.dispose()
         log.info("worker stopped")
 

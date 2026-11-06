@@ -62,6 +62,8 @@ class Review(Base):
         _enum(ReviewStatus, "review_status"), default=ReviewStatus.queued, index=True
     )
     error_message: Mapped[str | None] = mapped_column(Text)
+    # The review body posted to GitHub; shown on the dashboard detail page.
+    summary: Mapped[str | None] = mapped_column(Text)
     input_tokens: Mapped[int] = mapped_column(Integer, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)
     estimated_cost_usd: Mapped[float] = mapped_column(Numeric(10, 6), default=0)
