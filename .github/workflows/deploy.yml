@@ -1,0 +1,45 @@
+name: Deploy
+
+# Manual only: the EKS cluster is not always running (see scripts/teardown.sh).
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag to deploy (defaults to the selected commit's SHA)
+        required: false
+
+permissions:
+  contents: read
+  id-token: write  # GitHub OIDC token, exchanged for short-lived AWS credentials
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  eks:
+    # The IAM role only trusts this repo's main branch, so other refs would fail anyway.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NAMESPACE: pr-copilot
+      IMAGE_TAG: ${{ inputs.image_tag || github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - run: aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER_NAME }}" --region "${{ vars.AWS_REGION }}"
+      - uses: azure/setup-helm@v5
+        with:
+          version: v4.3.1
+      - name: Helm upgrade
+        run: |
+          helm upgrade --install prc charts/pr-copilot \
+            --namespace "$NAMESPACE" \
+            -f charts/pr-copilot/values-eks.yaml \
+            --set image.tag="$IMAGE_TAG" \
+            --wait --timeout 10m
+      - run: kubectl -n "$NAMESPACE" get pods,ingress
