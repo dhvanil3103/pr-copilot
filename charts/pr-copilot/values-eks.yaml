@@ -3,11 +3,8 @@ image:
   registry: ghcr.io/dhvanil3103
 
 persistence:
+  # Created once by an admin from infra/k8s/gp3-storageclass.yaml.
   storageClassName: gp3
-
-storageClass:
-  create: true
-  name: gp3
 
 ingress:
   enabled: true

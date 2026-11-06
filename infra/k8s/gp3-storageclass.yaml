@@ -1,10 +1,9 @@
-{{- if .Values.storageClass.create }}
+# Applied once by a cluster admin (docs/DEPLOY_EKS.md), not by the Helm chart:
+# StorageClasses are cluster-scoped, and the CI deploy role is limited to the app namespace.
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: {{ .Values.storageClass.name }}
-  labels:
-    {{- include "pr-copilot.labels" . | nindent 4 }}
+  name: gp3
 provisioner: ebs.csi.aws.com
 parameters:
   type: gp3
@@ -15,4 +14,3 @@ parameters:
 reclaimPolicy: Delete
 volumeBindingMode: WaitForFirstConsumer
 allowVolumeExpansion: true
-{{- end }}

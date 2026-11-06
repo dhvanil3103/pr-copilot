@@ -72,15 +72,11 @@ kafka:
     limits: { cpu: "1", memory: 768Mi }
 
 persistence:
-  # Empty uses the cluster's default StorageClass.
+  # Empty uses the cluster's default StorageClass. On EKS this is the gp3 class
+  # from infra/k8s/gp3-storageclass.yaml (EBS CSI driver).
   storageClassName: ""
   # StatefulSet PVCs normally survive `helm uninstall` and keep billing as EBS volumes.
   deleteOnUninstall: true
-
-# Create a gp3 StorageClass backed by the EBS CSI driver (EKS only).
-storageClass:
-  create: false
-  name: gp3
 
 ingress:
   enabled: false
