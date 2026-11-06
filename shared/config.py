@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     # Single broker, so replication above 1 would make topic creation fail.
     kafka_replication_factor: int = 1
     kafka_max_poll_interval_ms: int = 900_000
+    # About two minutes of waiting for the broker on startup before giving up.
+    kafka_startup_attempts: int = 15
     # Attempts per message before it is moved to the dead letter topic.
     worker_max_attempts: int = 3
     worker_retry_base_seconds: float = 2.0
