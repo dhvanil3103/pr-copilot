@@ -7,6 +7,7 @@ the grounding filter, so a manipulated agent can at worst produce bad text.
 from langchain.tools import BaseTool, tool
 
 from worker.agents.base import PRContext
+from worker.diff import HUNK_HEADER
 
 
 def _numbered_patch(patch: str) -> str:
@@ -14,8 +15,8 @@ def _numbered_patch(patch: str) -> str:
     out: list[str] = []
     new_line = 0
     for raw in patch.splitlines():
-        if raw.startswith("@@"):
-            new_line = int(raw.split("+", 1)[1].split(",")[0].split(" ")[0])
+        if header := HUNK_HEADER.match(raw):
+            new_line = int(header.group(1))
             out.append(raw)
         elif raw.startswith("-") or raw.startswith("\\"):
             out.append(f"     {raw}")

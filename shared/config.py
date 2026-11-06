@@ -1,4 +1,3 @@
-import json
 from functools import lru_cache
 
 from pydantic import BaseModel
@@ -73,9 +72,6 @@ class Settings(BaseSettings):
     def model_for(self, agent: str) -> str:
         override = {"review": self.review_agent_model, "test": self.test_agent_model}[agent]
         return override or self.default_model
-
-    def prices_json(self) -> str:
-        return json.dumps({k: v.model_dump() for k, v in self.model_prices.items()})
 
 
 @lru_cache
