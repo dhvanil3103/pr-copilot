@@ -61,7 +61,10 @@ services:
 
   worker:
     build: { context: ., dockerfile: worker/Dockerfile }
-    environment: *app-env
+    env_file: [.env]
+    environment:
+      <<: *app-env
+      WORKER_RETRY_BASE_SECONDS: "2"
     depends_on:
       migrate: { condition: service_completed_successfully }
       kafka: { condition: service_healthy }
