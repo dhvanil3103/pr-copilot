@@ -1,0 +1,31 @@
+{
+  "id": "go_nil_map",
+  "title": "Counter writes into a nil map",
+  "kind": "bug",
+  "files": [
+    {
+      "filename": "internal/stats/counter.go",
+      "language": "go",
+      "status": "added",
+      "additions": 17,
+      "patch": "@@ -0,0 +1,17 @@\n+package stats\n+\n+type Counter struct {\n+\tcounts map[string]int\n+}\n+\n+func NewCounter() *Counter {\n+\treturn &Counter{}\n+}\n+\n+func (c *Counter) Add(key string) {\n+\tc.counts[key]++\n+}\n+\n+func (c *Counter) Get(key string) int {\n+\treturn c.counts[key]\n+}",
+      "content": "package stats\n\ntype Counter struct {\n\tcounts map[string]int\n}\n\nfunc NewCounter() *Counter {\n\treturn &Counter{}\n}\n\nfunc (c *Counter) Add(key string) {\n\tc.counts[key]++\n}\n\nfunc (c *Counter) Get(key string) int {\n\treturn c.counts[key]\n}\n"
+    }
+  ],
+  "expected": [
+    {
+      "file": "internal/stats/counter.go",
+      "line_start": 8,
+      "line_end": 8,
+      "category": "bug",
+      "description": "counts map is never initialised in the constructor"
+    },
+    {
+      "file": "internal/stats/counter.go",
+      "line_start": 12,
+      "line_end": 12,
+      "category": "bug",
+      "description": "Writing to a nil map panics at runtime"
+    }
+  ]
+}

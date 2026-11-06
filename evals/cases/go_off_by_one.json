@@ -1,0 +1,24 @@
+{
+  "id": "go_off_by_one",
+  "title": "Sum loop reads past the end of the slice",
+  "kind": "bug",
+  "files": [
+    {
+      "filename": "pkg/mathx/sum.go",
+      "language": "go",
+      "status": "added",
+      "additions": 10,
+      "patch": "@@ -0,0 +1,10 @@\n+package mathx\n+\n+// Sum returns the total of all values.\n+func Sum(values []int) int {\n+\ttotal := 0\n+\tfor i := 0; i <= len(values); i++ {\n+\t\ttotal += values[i]\n+\t}\n+\treturn total\n+}",
+      "content": "package mathx\n\n// Sum returns the total of all values.\nfunc Sum(values []int) int {\n\ttotal := 0\n\tfor i := 0; i <= len(values); i++ {\n\t\ttotal += values[i]\n\t}\n\treturn total\n}\n"
+    }
+  ],
+  "expected": [
+    {
+      "file": "pkg/mathx/sum.go",
+      "line_start": 6,
+      "line_end": 7,
+      "category": "bug",
+      "description": "Off-by-one: i <= len(values) indexes out of range and panics"
+    }
+  ]
+}

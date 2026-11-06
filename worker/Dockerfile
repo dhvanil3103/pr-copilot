@@ -18,8 +18,7 @@ WORKDIR /app
 COPY --from=builder --chown=app:app /app /app
 ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1
 USER app
-# The worker has no HTTP port; the check confirms the Python process is alive
-# and can import its code. Kubernetes liveness is handled in the Helm chart.
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD python -c "import worker.main"
+# No HTTP port: the worker touches this file every 10s (see worker/main.py).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD test -n "$(find /tmp/worker-heartbeat -mmin -1 2>/dev/null)"
 CMD ["python", "-m", "worker.main"]

@@ -65,17 +65,27 @@ async def set_status(
         await session.commit()
 
 
-async def _run_agent(deps: WorkerDeps, agent: AgentName, pr: PRContext) -> AgentResult:
-    model = deps.settings.model_for(agent)
+async def _run_agent(
+    settings: Settings, runner: AgentRunner, agent: AgentName, pr: PRContext
+) -> AgentResult:
+    model = settings.model_for(agent)
     try:
-        return await asyncio.wait_for(
-            deps.runner.run(agent, pr), timeout=deps.settings.agent_timeout_seconds
-        )
+        return await asyncio.wait_for(runner.run(agent, pr), timeout=settings.agent_timeout_seconds)
     except TimeoutError:
         return AgentResult(agent=agent, model=model, output=None, error="timed out")
     except Exception as exc:
         log.exception("%s agent failed", agent)
         return AgentResult(agent=agent, model=model, output=None, error=type(exc).__name__)
+
+
+async def run_agents(settings: Settings, runner: AgentRunner, pr: PRContext) -> list[AgentResult]:
+    """Run both agents concurrently. A failing agent yields a result with `error` set."""
+    return list(
+        await asyncio.gather(
+            _run_agent(settings, runner, AgentName.review, pr),
+            _run_agent(settings, runner, AgentName.test, pr),
+        )
+    )
 
 
 async def process_event(event: PullRequestEventV1, deps: WorkerDeps) -> None:
@@ -101,9 +111,7 @@ async def process_event(event: PullRequestEventV1, deps: WorkerDeps) -> None:
         files=selection.files,
         github=deps.github,
     )
-    results = await asyncio.gather(
-        _run_agent(deps, AgentName.review, pr), _run_agent(deps, AgentName.test, pr)
-    )
+    results = await run_agents(s, deps.runner, pr)
     if all(r.output is None for r in results):
         # Raising lets the consumer retry and eventually dead-letter the event.
         raise AgentsFailedError("; ".join(f"{r.agent}: {r.error}" for r in results))

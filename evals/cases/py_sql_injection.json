@@ -1,0 +1,24 @@
+{
+  "id": "py_sql_injection",
+  "title": "User lookup builds SQL with an f-string",
+  "kind": "bug",
+  "files": [
+    {
+      "filename": "app/users.py",
+      "language": "python",
+      "status": "added",
+      "additions": 12,
+      "patch": "@@ -0,0 +1,12 @@\n+import sqlite3\n+\n+\n+def find_user(conn: sqlite3.Connection, username: str):\n+    cursor = conn.cursor()\n+    query = f\"SELECT id, email FROM users WHERE name = '{username}'\"\n+    cursor.execute(query)\n+    return cursor.fetchone()\n+\n+\n+def count_users(conn: sqlite3.Connection) -> int:\n+    return conn.execute(\"SELECT COUNT(*) FROM users\").fetchone()[0]",
+      "content": "import sqlite3\n\n\ndef find_user(conn: sqlite3.Connection, username: str):\n    cursor = conn.cursor()\n    query = f\"SELECT id, email FROM users WHERE name = '{username}'\"\n    cursor.execute(query)\n    return cursor.fetchone()\n\n\ndef count_users(conn: sqlite3.Connection) -> int:\n    return conn.execute(\"SELECT COUNT(*) FROM users\").fetchone()[0]\n"
+    }
+  ],
+  "expected": [
+    {
+      "file": "app/users.py",
+      "line_start": 6,
+      "line_end": 7,
+      "category": "security",
+      "description": "SQL injection: username interpolated into the query"
+    }
+  ]
+}

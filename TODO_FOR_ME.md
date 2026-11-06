@@ -4,6 +4,7 @@
 - `feat/foundation` (from `main`)
 - `feat/review-pipeline` (from `main`)
 - `feat/api-and-dashboard` (from `main`)
+- `test/integration-and-evals` (from `main`)
 
 ## Ready to merge
 (none)
@@ -11,7 +12,9 @@
 ## Blocked on me
 - Create the GitHub App and put `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET`
   in `.env` (steps will be in docs/GITHUB_APP.md).
-- Provide `ANTHROPIC_API_KEY` in `.env` for real reviews and evals.
+- Provide `ANTHROPIC_API_KEY` in `.env` for real reviews and evals, then run
+  `uv run python -m evals.run` once (about 10 cases x 2 agents on Haiku; expect cents, not
+  dollars). Evals were only verified against the mock Anthropic server, so no real scores yet.
 - AWS credentials, region, and budget alert email for Terraform.
 - `git config user.name` is not set; commits currently show the system default name "Dhvanil".
 
