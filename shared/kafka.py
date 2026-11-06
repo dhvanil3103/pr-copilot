@@ -1,0 +1,58 @@
+import logging
+
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from aiokafka.admin import AIOKafkaAdminClient, NewTopic
+from aiokafka.errors import TopicAlreadyExistsError
+
+from shared.config import Settings
+
+log = logging.getLogger(__name__)
+
+
+async def ensure_topics(settings: Settings) -> None:
+    """Create the main and dead letter topics if missing. Safe to call repeatedly."""
+    admin = AIOKafkaAdminClient(bootstrap_servers=settings.kafka_bootstrap_servers)
+    await admin.start()
+    try:
+        for name in (settings.kafka_topic, settings.kafka_dlq_topic):
+            topic = NewTopic(
+                name=name,
+                num_partitions=settings.kafka_partitions,
+                replication_factor=settings.kafka_replication_factor,
+            )
+            try:
+                await admin.create_topics([topic])
+                log.info("created topic %s", name)
+            except TopicAlreadyExistsError:
+                # Several replicas can start at once; losing the race is fine.
+                pass
+    finally:
+        await admin.close()
+
+
+def make_producer(settings: Settings) -> AIOKafkaProducer:
+    # acks="all" so a webhook is only acknowledged once the broker has the event.
+    return AIOKafkaProducer(bootstrap_servers=settings.kafka_bootstrap_servers, acks="all")
+
+
+def make_consumer(settings: Settings) -> AIOKafkaConsumer:
+    return AIOKafkaConsumer(
+        settings.kafka_topic,
+        bootstrap_servers=settings.kafka_bootstrap_servers,
+        group_id=settings.kafka_consumer_group,
+        # Offsets are committed manually, only after processing finishes.
+        enable_auto_commit=False,
+        auto_offset_reset="earliest",
+    )
+
+
+async def kafka_reachable(settings: Settings) -> bool:
+    admin = AIOKafkaAdminClient(bootstrap_servers=settings.kafka_bootstrap_servers)
+    try:
+        await admin.start()
+        await admin.list_topics()
+        return True
+    except Exception:
+        return False
+    finally:
+        await admin.close()
