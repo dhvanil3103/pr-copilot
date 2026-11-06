@@ -6,6 +6,14 @@
 - `feat/api-and-dashboard` (from `main`)
 - `test/integration-and-evals` (from `main`)
 - `feat/deployment` (from `main`)
+- `fix/ci-setup-uv` (from `main`)
+- `docs/final-pass` (from `main`)
+
+## Already happened on GitHub (heads-up)
+- Pushing `main` with the workflows triggered **Release**, which built multi-arch images and
+  pushed them to GHCR under your account (`pr-copilot-api`, `-worker`, `-frontend`). GHCR is
+  free for public repos; delete the packages if you don't want them yet.
+- CI, E2E (kind) and Release all pass on GitHub-hosted runners.
 
 ## Blocked on me
 - Create the GitHub App and put `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET`

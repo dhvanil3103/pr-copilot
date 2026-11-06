@@ -71,7 +71,7 @@ async def github_webhook(
             head_sha=payload.pull_request.head.sha,
             installation_id=payload.installation.id,
         )
-        .on_conflict_do_nothing(constraint="reviews_repo_full_name_pr_number_head_sha_key")
+        .on_conflict_do_nothing(index_elements=["repo_full_name", "pr_number", "head_sha"])
         .returning(Review.id)
     )
     async with request.app.state.session_factory() as session:

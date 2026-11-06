@@ -5,7 +5,8 @@ from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from pathlib import PurePosixPath
 
-_HUNK_HEADER = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+# Group 1 is the first line number of the hunk in the new file.
+HUNK_HEADER = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
 LOCKFILES = {
     "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "uv.lock",
@@ -32,7 +33,7 @@ def added_lines(patch: str) -> set[int]:
     new_line = 0
     in_hunk = False
     for raw in patch.splitlines():
-        header = _HUNK_HEADER.match(raw)
+        header = HUNK_HEADER.match(raw)
         if header:
             new_line = int(header.group(1))
             in_hunk = True

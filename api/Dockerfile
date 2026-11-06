@@ -8,6 +8,7 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 # Dependencies first so this layer is cached until the lockfile changes.
 COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-dev --no-install-project
+# The project package contains shared, api and worker, so building it needs all three.
 COPY shared ./shared
 COPY api ./api
 COPY worker ./worker
