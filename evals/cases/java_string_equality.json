@@ -1,0 +1,24 @@
+{
+  "id": "java_string_equality",
+  "title": "Role check compares strings with ==",
+  "kind": "bug",
+  "files": [
+    {
+      "filename": "src/main/java/com/acme/auth/RoleChecker.java",
+      "language": "java",
+      "status": "added",
+      "additions": 12,
+      "patch": "@@ -0,0 +1,12 @@\n+package com.acme.auth;\n+\n+public final class RoleChecker {\n+    private RoleChecker() {}\n+\n+    public static boolean isAdmin(User user) {\n+        if (user == null) {\n+            return false;\n+        }\n+        return user.getRole() == \"admin\";\n+    }\n+}",
+      "content": "package com.acme.auth;\n\npublic final class RoleChecker {\n    private RoleChecker() {}\n\n    public static boolean isAdmin(User user) {\n        if (user == null) {\n            return false;\n        }\n        return user.getRole() == \"admin\";\n    }\n}\n"
+    }
+  ],
+  "expected": [
+    {
+      "file": "src/main/java/com/acme/auth/RoleChecker.java",
+      "line_start": 10,
+      "line_end": 10,
+      "category": "bug",
+      "description": "String compared with == (reference equality) instead of equals, so admins are not recognised"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "java_resource_leak",
+  "title": "CSV reader never closes its file handle",
+  "kind": "bug",
+  "files": [
+    {
+      "filename": "src/main/java/com/acme/io/CsvLoader.java",
+      "language": "java",
+      "status": "added",
+      "additions": 19,
+      "patch": "@@ -0,0 +1,19 @@\n+package com.acme.io;\n+\n+import java.io.BufferedReader;\n+import java.io.FileReader;\n+import java.io.IOException;\n+import java.util.ArrayList;\n+import java.util.List;\n+\n+public class CsvLoader {\n+    public List<String[]> load(String path) throws IOException {\n+        BufferedReader reader = new BufferedReader(new FileReader(path));\n+        List<String[]> rows = new ArrayList<>();\n+        String line;\n+        while ((line = reader.readLine()) != null) {\n+            rows.add(line.split(\",\"));\n+        }\n+        return rows;\n+    }\n+}",
+      "content": "package com.acme.io;\n\nimport java.io.BufferedReader;\nimport java.io.FileReader;\nimport java.io.IOException;\nimport java.util.ArrayList;\nimport java.util.List;\n\npublic class CsvLoader {\n    public List<String[]> load(String path) throws IOException {\n        BufferedReader reader = new BufferedReader(new FileReader(path));\n        List<String[]> rows = new ArrayList<>();\n        String line;\n        while ((line = reader.readLine()) != null) {\n            rows.add(line.split(\",\"));\n        }\n        return rows;\n    }\n}\n"
+    }
+  ],
+  "expected": [
+    {
+      "file": "src/main/java/com/acme/io/CsvLoader.java",
+      "line_start": 11,
+      "line_end": 11,
+      "category": "bug",
+      "description": "Reader is never closed (no try-with-resources), leaking file handles, also on exceptions"
+    }
+  ]
+}

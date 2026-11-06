@@ -1,0 +1,24 @@
+{
+  "id": "js_missing_await",
+  "title": "Profile loader forgets to await the JSON body",
+  "kind": "bug",
+  "files": [
+    {
+      "filename": "web/src/profile.js",
+      "language": "javascript",
+      "status": "added",
+      "additions": 8,
+      "patch": "@@ -0,0 +1,8 @@\n+export async function loadProfile(userId) {\n+  const response = await fetch(`/api/users/${userId}`);\n+  if (!response.ok) {\n+    throw new Error(`failed to load user ${userId}`);\n+  }\n+  const profile = response.json();\n+  return { name: profile.name, email: profile.email };\n+}",
+      "content": "export async function loadProfile(userId) {\n  const response = await fetch(`/api/users/${userId}`);\n  if (!response.ok) {\n    throw new Error(`failed to load user ${userId}`);\n  }\n  const profile = response.json();\n  return { name: profile.name, email: profile.email };\n}\n"
+    }
+  ],
+  "expected": [
+    {
+      "file": "web/src/profile.js",
+      "line_start": 6,
+      "line_end": 7,
+      "category": "bug",
+      "description": "response.json() returns a promise and is not awaited, so profile.name is undefined"
+    }
+  ]
+}

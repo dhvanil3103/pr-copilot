@@ -1,0 +1,24 @@
+{
+  "id": "js_xss",
+  "title": "Comment widget renders user text with innerHTML",
+  "kind": "bug",
+  "files": [
+    {
+      "filename": "web/src/comments.js",
+      "language": "javascript",
+      "status": "added",
+      "additions": 8,
+      "patch": "@@ -0,0 +1,8 @@\n+export function renderComments(container, comments) {\n+  container.textContent = \"\";\n+  for (const comment of comments) {\n+    const item = document.createElement(\"li\");\n+    item.innerHTML = `<b>${comment.author}</b>: ${comment.text}`;\n+    container.appendChild(item);\n+  }\n+}",
+      "content": "export function renderComments(container, comments) {\n  container.textContent = \"\";\n  for (const comment of comments) {\n    const item = document.createElement(\"li\");\n    item.innerHTML = `<b>${comment.author}</b>: ${comment.text}`;\n    container.appendChild(item);\n  }\n}\n"
+    }
+  ],
+  "expected": [
+    {
+      "file": "web/src/comments.js",
+      "line_start": 5,
+      "line_end": 5,
+      "category": "security",
+      "description": "XSS: untrusted author and text are inserted with innerHTML"
+    }
+  ]
+}

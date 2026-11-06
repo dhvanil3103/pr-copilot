@@ -1,0 +1,24 @@
+{
+  "id": "py_mutable_default",
+  "title": "Shopping cart helper with a mutable default argument",
+  "kind": "bug",
+  "files": [
+    {
+      "filename": "cart/cart.py",
+      "language": "python",
+      "status": "added",
+      "additions": 16,
+      "patch": "@@ -0,0 +1,16 @@\n+from dataclasses import dataclass\n+\n+\n+@dataclass\n+class Item:\n+    sku: str\n+    price_cents: int\n+\n+\n+def add_item(item: Item, cart: list[Item] = []) -> list[Item]:\n+    cart.append(item)\n+    return cart\n+\n+\n+def total_cents(cart: list[Item]) -> int:\n+    return sum(i.price_cents for i in cart)",
+      "content": "from dataclasses import dataclass\n\n\n@dataclass\nclass Item:\n    sku: str\n    price_cents: int\n\n\ndef add_item(item: Item, cart: list[Item] = []) -> list[Item]:\n    cart.append(item)\n    return cart\n\n\ndef total_cents(cart: list[Item]) -> int:\n    return sum(i.price_cents for i in cart)\n"
+    }
+  ],
+  "expected": [
+    {
+      "file": "cart/cart.py",
+      "line_start": 10,
+      "line_end": 10,
+      "category": "bug",
+      "description": "Mutable default list is shared across calls, so carts leak items between users"
+    }
+  ]
+}
