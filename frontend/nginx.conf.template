@@ -1,0 +1,31 @@
+server {
+    # Unprivileged image: nginx runs as a non-root user, so it cannot bind :80.
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # In Kubernetes the ingress sends /api to the API before it reaches nginx;
+    # this proxy is what makes the dashboard work under plain docker compose.
+    location /api/ {
+        proxy_pass ${API_UPSTREAM};
+        proxy_set_header Host $host;
+        proxy_set_header X-Request-ID $request_id;
+    }
+
+    location /assets/ {
+        # Vite fingerprints asset file names, so they can be cached forever.
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    location / {
+        add_header Cache-Control "no-cache";
+        try_files $uri /index.html;
+    }
+}

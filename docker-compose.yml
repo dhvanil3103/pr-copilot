@@ -54,6 +54,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://prcopilot:${POSTGRES_PASSWORD:-prcopilot}@postgres:5432/prcopilot
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:?set GITHUB_WEBHOOK_SECRET in .env}
+      # Lets the Vite dev server (npm run dev) call the API directly.
+      CORS_ALLOW_ORIGINS: '["http://localhost:5173"]'
     ports: ["8000:8000"]
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -68,6 +70,11 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
       kafka: { condition: service_healthy }
+
+  frontend:
+    build: { context: frontend }
+    ports: ["8080:8080"]
+    depends_on: [api]
 
 volumes:
   pgdata:
