@@ -1,0 +1,21 @@
+# Values for the ingress-nginx chart (4.15.1, the final release) on EKS. See docs/DEPLOY_EKS.md.
+controller:
+  replicaCount: 1
+  resources:
+    requests: { cpu: 50m, memory: 96Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+  service:
+    type: LoadBalancer
+    # One internet-facing NLB for everything, created by the built-in AWS cloud
+    # provider (no AWS Load Balancer Controller needed). Leaving out
+    # aws-load-balancer-internal makes it internet-facing.
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+      service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: project=pr-copilot
+  admissionWebhooks:
+    # The validating webhook is extra moving parts for a single-tenant demo cluster.
+    enabled: false
+  metrics:
+    enabled: false
+defaultBackend:
+  enabled: false
