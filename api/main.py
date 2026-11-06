@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from api.reviews import router as reviews_router
 from api.webhooks import router as webhooks_router
 from shared.config import Settings, get_settings
 from shared.db import make_engine, make_session_factory
@@ -78,4 +79,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return JSONResponse(checks, status_code=200 if ok else 503)
 
     app.include_router(webhooks_router)
+    app.include_router(reviews_router)
     return app
