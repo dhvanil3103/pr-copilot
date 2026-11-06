@@ -3,6 +3,7 @@
 ## Merged (merged locally into `main` by Claude at your request; nothing pushed)
 - `feat/foundation` (from `main`)
 - `feat/review-pipeline` (from `main`)
+- `feat/api-and-dashboard` (from `main`)
 
 ## Ready to merge
 (none)
@@ -15,6 +16,9 @@
 - `git config user.name` is not set; commits currently show the system default name "Dhvanil".
 
 ## Decisions to review
+- Frontend pins jsdom 29 (not 31) because jsdom 30+ needs Node >= 22.22 and local Node is
+  22.14. TypeScript is pinned to 6.0.3 because typescript-eslint does not support TS 7 yet.
+  Consider upgrading local Node to 24 (CI and Docker use 24).
 - Added a `summary` column to `reviews` (migration 0002). The spec's column list has none,
   but the dashboard detail view needs the review summary.
 - Duplicate deliveries are rejected by the unique (repo, pr, head_sha) constraint, not a
