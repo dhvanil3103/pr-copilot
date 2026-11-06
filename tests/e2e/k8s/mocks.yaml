@@ -1,0 +1,56 @@
+# Mock GitHub and Anthropic APIs for the kind e2e run. Not part of the Helm chart.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-github
+  labels: { app: mock-github }
+spec:
+  replicas: 1  # reviews are recorded in memory, so exactly one replica
+  selector: { matchLabels: { app: mock-github } }
+  template:
+    metadata: { labels: { app: mock-github } }
+    spec:
+      containers:
+        - name: mock
+          image: pr-copilot-mock-github:e2e
+          imagePullPolicy: Never
+          ports: [{ name: http, containerPort: 8080 }]
+          readinessProbe: { httpGet: { path: /healthz, port: http } }
+          resources:
+            requests: { cpu: 10m, memory: 64Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: mock-github }
+spec:
+  selector: { app: mock-github }
+  ports: [{ name: http, port: 8080, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-anthropic
+  labels: { app: mock-anthropic }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: mock-anthropic } }
+  template:
+    metadata: { labels: { app: mock-anthropic } }
+    spec:
+      containers:
+        - name: mock
+          image: pr-copilot-mock-anthropic:e2e
+          imagePullPolicy: Never
+          ports: [{ name: http, containerPort: 8080 }]
+          readinessProbe: { httpGet: { path: /healthz, port: http } }
+          resources:
+            requests: { cpu: 10m, memory: 64Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: mock-anthropic }
+spec:
+  selector: { app: mock-anthropic }
+  ports: [{ name: http, port: 8080, targetPort: http }]
