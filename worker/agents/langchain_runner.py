@@ -1,8 +1,8 @@
 import logging
+import sys
 from pathlib import Path
 
 from langchain.agents import create_agent
-from langchain.agents.middleware import ModelCallLimitMiddleware
 from langchain.agents.structured_output import ProviderStrategy
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage
@@ -48,18 +48,17 @@ class LangChainAgentRunner:
             # Native structured output (output_config.format) rather than a forced
             # tool call, because newer Claude models reject forced tool_choice.
             response_format=ProviderStrategy(AgentOutput),
-            middleware=[
-                ModelCallLimitMiddleware(
-                    run_limit=self._settings.agent_max_model_calls, exit_behavior="end"
-                )
-            ],
             name=f"{agent}_agent",
         )
         task = (
             f"Review pull request #{pr.pr_number} in {pr.repo} at commit {pr.head_sha}. "
             f"{len(pr.files)} files are in scope. Use the tools to read the changes."
         )
-        state = await graph.ainvoke({"messages": [{"role": "user", "content": task}]})
+        state = await graph.ainvoke(
+            {"messages": [{"role": "user", "content": task}]},
+            # LangGraph's default (25 steps, about 12 model calls) is too few for a large PR.
+            config={"recursion_limit": sys.maxsize},
+        )
 
         ai_messages = [m for m in state["messages"] if isinstance(m, AIMessage)]
         usage = [m.usage_metadata for m in ai_messages if m.usage_metadata]
@@ -67,8 +66,7 @@ class LangChainAgentRunner:
         output = state.get("structured_response")
         error = None
         if output is None:
-            # The call limit ended the run before the agent produced its answer.
-            error = "agent stopped before producing a structured result"
+            error = "agent finished without a structured result"
         return AgentResult(
             agent=agent,
             model=model_name,

@@ -50,13 +50,3 @@ async def test_runner_uses_tools_and_returns_structured_findings(anthropic_url, 
     # The mock cites the first added line it sees, i.e. the line numbers our tool produced.
     assert findings == {("app.py", 4), ("lib/util.js", 1)}
     assert result.input_tokens > 0 and result.output_tokens > 0
-
-
-async def test_model_call_limit_stops_the_agent(anthropic_url):
-    # Two model calls are not enough for the mock's three-turn plan.
-    settings = Settings(
-        anthropic_api_key="k", anthropic_base_url=anthropic_url, agent_max_model_calls=2
-    )
-    result = await LangChainAgentRunner(settings).run(AgentName.review, make_pr())
-    assert result.output is None
-    assert "stopped before" in result.error
