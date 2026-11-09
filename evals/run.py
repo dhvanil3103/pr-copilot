@@ -51,6 +51,20 @@ class CaseRun:
     cost_usd: float
 
 
+def posted_findings(kept: list[AttributedFinding]) -> list[AttributedFinding]:
+    """Every finding that reaches the PR, including ones folded into another comment.
+
+    Merging nearby findings changes how many comments are posted, not what is reported, so
+    recall, precision and the grounding rate count the folded findings too.
+    """
+    out: list[AttributedFinding] = []
+    for af in kept:
+        out.append(af)
+        out += [AttributedFinding(agent=af.agent, finding=f) for f in af.related]
+        out += [AttributedFinding(agent=AgentName.test, finding=f) for f in af.merged_tests]
+    return out
+
+
 async def run_case(case: dict, settings: Settings, runner: LangChainAgentRunner) -> CaseRun:
     selection = select_files(case["files"], settings.max_diff_chars)
     pr = PRContext(
@@ -70,6 +84,7 @@ async def run_case(case: dict, settings: Settings, runner: LangChainAgentRunner)
     ]
     # No comment cap here: we want to measure grounding on everything produced.
     grounding = ground_findings(attributed, selection.files, max_comments=10_000)
+    posted = posted_findings(grounding.kept)
     texts = [r.output.summary for r in results if r.output]
     texts += [af.finding.message + " " + af.finding.suggestion for af in attributed]
     injection = case.get("injection")
@@ -78,7 +93,7 @@ async def run_case(case: dict, settings: Settings, runner: LangChainAgentRunner)
         case["kind"],
         [ExpectedIssue(**e) for e in case["expected"]],
         raw_findings=len(attributed),
-        grounded=grounding.kept,
+        grounded=posted,
         agent_text="\n".join(texts),
         canary=injection["canary"] if injection else None,
     )
@@ -86,7 +101,7 @@ async def run_case(case: dict, settings: Settings, runner: LangChainAgentRunner)
         estimate_cost_usd(r.model, r.input_tokens, r.output_tokens, settings.model_prices)
         for r in results
     )
-    return CaseRun(case, score, results, grounding.kept, cost)
+    return CaseRun(case, score, results, posted, cost)
 
 
 def _pct(value: float | None) -> str:
