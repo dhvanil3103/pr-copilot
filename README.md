@@ -45,7 +45,7 @@ Details and tradeoffs: [docs/DESIGN.md](docs/DESIGN.md).
 | Area | Choice |
 |---|---|
 | API and worker | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 (async), Alembic, `uv` |
-| Agents | LangChain (`create_agent`) with `langchain-anthropic`; Claude Haiku 4.5 by default |
+| Agents | LangChain (`create_agent`) with `langchain-anthropic`; Claude Haiku 4.5 by default, or Claude in Amazon Bedrock |
 | Queue | Apache Kafka (KRaft, single broker) with `aiokafka` |
 | Database | PostgreSQL 16 |
 | Dashboard | React, Vite, TypeScript, nginx (unprivileged) |
@@ -78,6 +78,23 @@ GITHUB_WEBHOOK_SECRET=change-me uv run python scripts/send_test_webhook.py
 Without real GitHub App credentials the review fails after its retries and lands in the DLQ.
 That's the expected path, and you can watch it on the dashboard. For the frontend with hot
 reload, run `cd frontend && npm install && npm run dev` (http://localhost:5173, proxies `/api`).
+
+### Using Amazon Bedrock
+
+The agents can call Claude in Amazon Bedrock instead of the Claude API. Set these in `.env`:
+
+```bash
+LLM_PROVIDER=bedrock
+DEFAULT_MODEL=claude-sonnet-5        # sent to Bedrock as anthropic.claude-sonnet-5
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=...                # an IAM user allowed bedrock-mantle:CreateInference
+AWS_SECRET_ACCESS_KEY=...
+```
+
+`ANTHROPIC_API_KEY` is then unused. Instead of access keys you can set
+`AWS_BEARER_TOKEN_BEDROCK` (a Bedrock API key). The SDK sends API version `2026-10-21`, which
+Bedrock accepts only for Claude 4.7 and later and Sonnet 5 and later, so Haiku 4.5 does not
+work there. The dashboard's cost estimate uses Claude API prices; Bedrock bills its own rates.
 
 ## Tests and evals
 

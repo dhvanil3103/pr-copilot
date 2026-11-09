@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -15,6 +16,7 @@ class ModelPrice(BaseModel):
 # change, instead of editing code.
 DEFAULT_MODEL_PRICES = {
     "claude-haiku-4-5": ModelPrice(input=1.0, output=5.0),
+    "claude-sonnet-5": ModelPrice(input=2.0, output=10.0),
     "claude-sonnet-5-5": ModelPrice(input=2.0, output=10.0),
     "claude-opus-5-5": ModelPrice(input=4.0, output=20.0),
 }
@@ -48,8 +50,13 @@ class Settings(BaseSettings):
     # Configurable for GitHub Enterprise, a proxy, or the e2e mock server.
     github_api_url: str = "https://api.github.com"
 
+    # "bedrock" calls Claude in Amazon Bedrock with AWS credentials instead of an API key.
+    # Bedrock accepts this SDK's API version only on Claude 4.7+ and Sonnet 5+, not Haiku 4.5.
+    llm_provider: Literal["anthropic", "bedrock"] = "anthropic"
     anthropic_api_key: str = ""
     anthropic_base_url: str = "https://api.anthropic.com"
+    aws_region: str | None = None  # None falls back to AWS_REGION / AWS_DEFAULT_REGION
+    bedrock_base_url: str | None = None
     # Cheap model by default; each agent can be overridden independently.
     default_model: str = "claude-haiku-4-5"
     review_agent_model: str | None = None
