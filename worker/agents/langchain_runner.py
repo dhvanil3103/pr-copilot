@@ -10,6 +10,7 @@ from langchain_core.messages import AIMessage
 from shared.config import Settings
 from shared.db import AgentName
 from worker.agents.base import AgentResult, PRContext
+from worker.agents.bedrock import ChatAnthropicBedrock
 from worker.agents.tools import build_tools
 from worker.findings import AgentOutput
 
@@ -24,19 +25,32 @@ def load_prompt(agent: AgentName) -> str:
     return (PROMPTS_DIR / PROMPT_FILES[agent]).read_text()
 
 
+def bedrock_model_id(model: str) -> str:
+    # Config keeps the Claude API name so prices and the dashboard use one key per model.
+    return model if model.startswith("anthropic.") else f"anthropic.{model}"
+
+
 class LangChainAgentRunner:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
     def _model(self, agent: AgentName) -> ChatAnthropic:
         s = self._settings
+        common = {"max_tokens": s.agent_max_tokens, "timeout": s.agent_timeout_seconds}
+        if s.llm_provider == "bedrock":
+            return ChatAnthropicBedrock(
+                model=bedrock_model_id(s.model_for(agent)),
+                aws_region=s.aws_region,
+                bedrock_base_url=s.bedrock_base_url,
+                max_retries=3,
+                **common,
+            )
         return ChatAnthropic(
             model=s.model_for(agent),
             api_key=s.anthropic_api_key,
             base_url=s.anthropic_base_url,
-            max_tokens=s.agent_max_tokens,
-            timeout=s.agent_timeout_seconds,
             max_retries=3,
+            **common,
         )
 
     async def run(self, agent: AgentName, pr: PRContext) -> AgentResult:

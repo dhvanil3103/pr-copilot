@@ -8,7 +8,8 @@ from tests.doubles.github import FakeGitHubClient
 from tests.e2e.mocks.anthropic.app import app as mock_anthropic
 from tests.servers import serve
 from worker.agents.base import PRContext
-from worker.agents.langchain_runner import LangChainAgentRunner
+from worker.agents.bedrock import ChatAnthropicBedrock
+from worker.agents.langchain_runner import LangChainAgentRunner, bedrock_model_id
 from worker.diff import select_files
 
 FILES = [
@@ -50,3 +51,31 @@ async def test_runner_uses_tools_and_returns_structured_findings(anthropic_url, 
     # The mock cites the first added line it sees, i.e. the line numbers our tool produced.
     assert findings == {("app.py", 4), ("lib/util.js", 1)}
     assert result.input_tokens > 0 and result.output_tokens > 0
+
+
+async def test_bedrock_provider_uses_mantle_client_and_prefixed_model(anthropic_url, monkeypatch):
+    # A bearer token stands in for SigV4 so the request reaches the mock unsigned.
+    monkeypatch.setenv("AWS_BEARER_TOKEN_BEDROCK", "test-bedrock-token")
+    settings = Settings(
+        llm_provider="bedrock",
+        aws_region="us-east-1",
+        bedrock_base_url=anthropic_url,
+        default_model="claude-sonnet-5",
+    )
+    runner = LangChainAgentRunner(settings)
+    chat = runner._model(AgentName.review)
+    assert isinstance(chat, ChatAnthropicBedrock)
+    assert chat.model == "anthropic.claude-sonnet-5"
+
+    result = await runner.run(AgentName.review, make_pr())
+    assert result.error is None
+    assert result.model == "claude-sonnet-5"  # prices and dashboard keep the plain name
+    assert {(f.file_path, f.line) for f in result.output.findings} == {
+        ("app.py", 4),
+        ("lib/util.js", 1),
+    }
+
+
+def test_bedrock_model_id_is_prefixed_once():
+    assert bedrock_model_id("claude-sonnet-5") == "anthropic.claude-sonnet-5"
+    assert bedrock_model_id("anthropic.claude-sonnet-5") == "anthropic.claude-sonnet-5"
