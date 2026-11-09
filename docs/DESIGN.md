@@ -46,8 +46,8 @@ The API image also carries the migrations.
 5. The worker consumes the event and atomically claims the review (`queued` → `running`).
 6. It lists the PR files, drops lockfiles, generated, vendored and binary files, and keeps
    the most relevant files that fit the diff budget.
-7. The review agent and the test agent run in parallel (`asyncio.gather`), each with a
-   timeout and a model-call limit.
+7. The review agent and the test agent run in parallel (`asyncio.gather`), each until it
+   produces its answer.
 8. The grounding filter keeps only findings on real added lines, merges near-duplicates and
    caps the number of comments.
 9. The worker posts one `COMMENT` review (inline comments plus a summary), then stores the
@@ -117,9 +117,10 @@ Implementation choices:
   instead of LangChain's `ToolStrategy`. `ToolStrategy` forces `tool_choice="any"`, which
   newer Claude models (Sonnet 5.5, Opus 5.5) reject. With native structured output, any
   configured model works.
-- **Limits:** `ModelCallLimitMiddleware` caps model calls per run (the iteration limit), and
-  `asyncio.wait_for` caps wall-clock time. If one agent fails, the other's findings are still
-  posted and the summary says what failed. If both fail, the event is retried.
+- **No iteration limit:** agents run until they answer. A 10-call cap made the review agent
+  stop mid-review on a 26-file PR and return nothing, so model calls and total run time are
+  uncapped; only each HTTP request has a timeout. If one agent fails, the other's findings are
+  still posted and the summary says what failed. If both fail, the event is retried.
 - **Prompts** live in `worker/prompts/review_v1.md` and `test_v1.md`. Changing a prompt
   means a new file name, so prompt changes show up in diffs and eval reports name the version.
 - **Models** come from config: `DEFAULT_MODEL` (Claude Haiku 4.5, the cheapest) plus
@@ -195,8 +196,8 @@ Enterprise or a proxy, which is how the e2e environment points at the mocks.
 - Haiku 4.5 by default ($1 input / $5 output per million tokens), overridable per agent.
 - Noise files are never sent. The total diff is capped (`MAX_DIFF_CHARS`), and the summary
   lists files skipped for size.
-- File contents are truncated (`MAX_FILE_CONTENT_CHARS`), model calls per agent are capped,
-  and `max_tokens` is bounded.
+- File contents are truncated (`MAX_FILE_CONTENT_CHARS`) and `max_tokens` is bounded. Model
+  calls per agent are not capped, so a large PR costs more rather than failing.
 - Every review records input and output tokens and an estimated cost. Prices are config
   (`MODEL_PRICES`), not code, and the dashboard shows totals.
 

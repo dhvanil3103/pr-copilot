@@ -70,9 +70,7 @@ async def _run_agent(
 ) -> AgentResult:
     model = settings.model_for(agent)
     try:
-        return await asyncio.wait_for(runner.run(agent, pr), timeout=settings.agent_timeout_seconds)
-    except TimeoutError:
-        return AgentResult(agent=agent, model=model, output=None, error="timed out")
+        return await runner.run(agent, pr)
     except Exception as exc:
         log.exception("%s agent failed", agent)
         return AgentResult(agent=agent, model=model, output=None, error=type(exc).__name__)

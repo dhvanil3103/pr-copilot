@@ -55,9 +55,10 @@ class Settings(BaseSettings):
     review_agent_model: str | None = None
     test_agent_model: str | None = None
     agent_max_tokens: int = 8000
+    # Per HTTP request to the model, so a hung connection cannot stall the worker. There is
+    # deliberately no cap on model calls or total run time: a capped agent on a large PR
+    # stopped mid-review and returned nothing.
     agent_timeout_seconds: float = 180
-    # Max model calls per agent run, i.e. the agent's iteration limit.
-    agent_max_model_calls: int = 10
 
     # Review size limits; they bound both token cost and comment noise.
     max_diff_chars: int = 60_000
