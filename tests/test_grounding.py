@@ -50,7 +50,10 @@ def test_different_messages_on_same_line_are_kept():
         FILES,
         max_comments=10,
     )
-    assert len(result.kept) == 2
+    # Same agent and category, so one comment, but neither finding is lost.
+    assert len(result.kept) == 1
+    messages = [result.kept[0].finding.message, *(r.message for r in result.kept[0].related)]
+    assert sorted(messages) == ["Add a test for None", "SQL injection via f-string"]
 
 
 def test_cap_keeps_most_severe():
@@ -84,3 +87,39 @@ def test_test_suggestion_on_same_line_is_merged_into_review_comment():
         "Test that a quote in email cannot inject SQL"
     ]
     assert result.merged_tests == 1 and result.dropped_duplicates == 0
+
+
+def finding_on(line, category, message, severity=Severity.warning, agent="review", path="app.py"):
+    f = Finding(file_path=path, line=line, severity=severity, category=category, message=message)
+    return AttributedFinding(agent=AgentName(agent), finding=f)
+
+
+def test_test_suggestion_a_line_away_attaches_to_nearest_review_comment():
+    result = ground_findings(
+        [
+            finding_on(12, "bug", "Race condition in reserve", Severity.error),
+            finding_on(11, "test", "Test that two threads cannot oversell", agent="test"),
+        ],
+        FILES,
+        max_comments=10,
+    )
+    assert len(result.kept) == 1 and result.merged_tests == 1
+
+
+def test_same_category_findings_within_three_lines_become_one_comment():
+    result = ground_findings(
+        [
+            finding_on(10, "security", "Order SKU reaches the page unescaped"),
+            finding_on(
+                11, "security", "customerNote is interpolated into innerHTML", Severity.error
+            ),
+            finding_on(12, "bug", "Unrelated off-by-one"),
+            finding_on(30, "security", "Hardcoded key"),
+        ],
+        FILES,
+        max_comments=10,
+    )
+    kept = {(k.finding.line, k.finding.category): k for k in result.kept}
+    assert set(kept) == {(11, "security"), (12, "bug"), (30, "security")}
+    assert [r.line for r in kept[(11, "security")].related] == [10]
+    assert result.merged_related == 1 and result.dropped_duplicates == 0
