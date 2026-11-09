@@ -17,6 +17,8 @@ class ModelPrice(BaseModel):
 DEFAULT_MODEL_PRICES = {
     "claude-haiku-4-5": ModelPrice(input=1.0, output=5.0),
     "claude-sonnet-5": ModelPrice(input=2.0, output=10.0),
+    # Bedrock bills its own rates; Claude API prices are close enough for the dashboard.
+    "us.anthropic.claude-opus-4-5-20251101-v1:0": ModelPrice(input=5.0, output=25.0),
     "claude-sonnet-5-5": ModelPrice(input=2.0, output=10.0),
     "claude-opus-5-5": ModelPrice(input=4.0, output=20.0),
 }
@@ -50,12 +52,18 @@ class Settings(BaseSettings):
     # Configurable for GitHub Enterprise, a proxy, or the e2e mock server.
     github_api_url: str = "https://api.github.com"
 
-    # "bedrock" calls Claude in Amazon Bedrock with AWS credentials instead of an API key.
-    # Bedrock accepts this SDK's API version only on Claude 4.7+ and Sonnet 5+, not Haiku 4.5.
+    # "bedrock" uses AWS credentials instead of an API key. Claude models go through Bedrock's
+    # Messages API, which accepts this SDK's API version only on Claude 4.7+ and Sonnet 5+
+    # (not Haiku 4.5); any other model ID (e.g. us.moonshotai.kimi-k3.1) goes through Converse.
     llm_provider: Literal["anthropic", "bedrock"] = "anthropic"
     anthropic_api_key: str = ""
     anthropic_base_url: str = "https://api.anthropic.com"
     aws_region: str | None = None  # None falls back to AWS_REGION / AWS_DEFAULT_REGION
+    # Read here so a .env file works outside Docker too; unset means the AWS credential
+    # chain (profile, EKS Pod Identity) or AWS_BEARER_TOKEN_BEDROCK.
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_session_token: str | None = None
     bedrock_base_url: str | None = None
     # Cheap model by default; each agent can be overridden independently.
     default_model: str = "claude-haiku-4-5"

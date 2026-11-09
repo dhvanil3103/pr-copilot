@@ -2,9 +2,12 @@ import logging
 import sys
 from pathlib import Path
 
+from botocore.config import Config as BotoConfig
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ProviderStrategy
 from langchain_anthropic import ChatAnthropic
+from langchain_aws import ChatBedrockConverse
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage
 
 from shared.config import Settings
@@ -25,6 +28,13 @@ def load_prompt(agent: AgentName) -> str:
     return (PROMPTS_DIR / PROMPT_FILES[agent]).read_text()
 
 
+def uses_bedrock_messages_api(model: str) -> bool:
+    # Bedrock's Messages API serves Claude 4.7+ under unversioned IDs (anthropic.claude-opus-5).
+    # Versioned IDs (us.anthropic.claude-opus-4-5-20251101-v1:0) and other vendors' models
+    # only work through Converse.
+    return "claude" in model and ":" not in model
+
+
 def bedrock_model_id(model: str) -> str:
     # Config keeps the Claude API name so prices and the dashboard use one key per model.
     return model if model.startswith("anthropic.") else f"anthropic.{model}"
@@ -34,19 +44,38 @@ class LangChainAgentRunner:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    def _model(self, agent: AgentName) -> ChatAnthropic:
+    def _model(self, agent: AgentName) -> BaseChatModel:
         s = self._settings
+        model = s.model_for(agent)
         common = {"max_tokens": s.agent_max_tokens, "timeout": s.agent_timeout_seconds}
+        aws_creds = {
+            "aws_access_key_id": s.aws_access_key_id,
+            "aws_secret_access_key": s.aws_secret_access_key,
+            "aws_session_token": s.aws_session_token,
+        }
+        if s.llm_provider == "bedrock" and not uses_bedrock_messages_api(model):
+            return ChatBedrockConverse(
+                model_id=model,
+                region_name=s.aws_region,
+                max_tokens=s.agent_max_tokens,
+                # boto's 60s read timeout is too short for a reasoning model's long turns.
+                config=BotoConfig(
+                    read_timeout=s.agent_timeout_seconds,
+                    retries={"max_attempts": 4, "mode": "standard"},
+                ),
+                **{k: v for k, v in aws_creds.items() if v},
+            )
         if s.llm_provider == "bedrock":
             return ChatAnthropicBedrock(
-                model=bedrock_model_id(s.model_for(agent)),
+                model=bedrock_model_id(model),
                 aws_region=s.aws_region,
                 bedrock_base_url=s.bedrock_base_url,
                 max_retries=3,
+                **aws_creds,
                 **common,
             )
         return ChatAnthropic(
-            model=s.model_for(agent),
+            model=model,
             api_key=s.anthropic_api_key,
             base_url=s.anthropic_base_url,
             max_retries=3,
@@ -59,8 +88,8 @@ class LangChainAgentRunner:
             model=self._model(agent),
             tools=build_tools(pr, self._settings.max_file_content_chars),
             system_prompt=load_prompt(agent),
-            # Native structured output (output_config.format) rather than a forced
-            # tool call, because newer Claude models reject forced tool_choice.
+            # Native structured output (output_config.format, or Converse outputConfig) rather
+            # than a forced tool call: newer Claude models and models like Kimi reject one.
             response_format=ProviderStrategy(AgentOutput),
             name=f"{agent}_agent",
         )

@@ -9,7 +9,11 @@ from tests.e2e.mocks.anthropic.app import app as mock_anthropic
 from tests.servers import serve
 from worker.agents.base import PRContext
 from worker.agents.bedrock import ChatAnthropicBedrock
-from worker.agents.langchain_runner import LangChainAgentRunner, bedrock_model_id
+from worker.agents.langchain_runner import (
+    LangChainAgentRunner,
+    bedrock_model_id,
+    uses_bedrock_messages_api,
+)
 from worker.diff import select_files
 
 FILES = [
@@ -79,3 +83,10 @@ async def test_bedrock_provider_uses_mantle_client_and_prefixed_model(anthropic_
 def test_bedrock_model_id_is_prefixed_once():
     assert bedrock_model_id("claude-sonnet-5") == "anthropic.claude-sonnet-5"
     assert bedrock_model_id("anthropic.claude-sonnet-5") == "anthropic.claude-sonnet-5"
+
+
+def test_bedrock_routes_versioned_and_non_claude_ids_to_converse():
+    assert uses_bedrock_messages_api("claude-sonnet-5")
+    assert uses_bedrock_messages_api("anthropic.claude-opus-5")
+    assert not uses_bedrock_messages_api("us.anthropic.claude-opus-4-5-20251101-v1:0")
+    assert not uses_bedrock_messages_api("us.moonshotai.kimi-k3.1")
