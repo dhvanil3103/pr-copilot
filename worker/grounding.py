@@ -6,7 +6,7 @@ findings anchored to a real added line survive.
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 
 from shared.db import AgentName, Severity
@@ -23,6 +23,8 @@ _SIMILARITY = 0.8
 class AttributedFinding:
     agent: AgentName
     finding: Finding
+    # Test suggestions folded into this review comment because they target the same line.
+    merged_tests: list[Finding] = field(default_factory=list)
 
 
 @dataclass
@@ -31,6 +33,7 @@ class GroundingResult:
     dropped_ungrounded: int
     dropped_duplicates: int
     dropped_over_cap: int
+    merged_tests: int = 0
 
 
 def _normalize(text: str) -> str:
@@ -55,18 +58,38 @@ def ground_findings(
     ungrounded = len(findings) - len(grounded)
 
     # Most severe first, so dedupe keeps the strongest version and the cap
-    # drops the least important comments.
-    grounded.sort(key=lambda af: (_SEVERITY_RANK[af.finding.severity], af.agent != "review"))
+    # drops the least important comments. Review findings go first so a test suggestion
+    # on the same line can be folded into the review comment instead of posted beside it.
+    grounded.sort(key=lambda af: (af.agent != "review", _SEVERITY_RANK[af.finding.severity]))
     unique: list[AttributedFinding] = []
+    merged = 0
     for af in grounded:
-        if not any(_is_duplicate(af.finding, kept.finding) for kept in unique):
+        if any(_is_duplicate(af.finding, kept.finding) for kept in unique):
+            continue
+        target = next(
+            (
+                kept
+                for kept in unique
+                if af.agent != kept.agent
+                and kept.agent == "review"
+                and kept.finding.file_path == af.finding.file_path
+                and kept.finding.line == af.finding.line
+            ),
+            None,
+        )
+        if target is not None:
+            target.merged_tests.append(af.finding)
+            merged += 1
+        else:
             unique.append(af)
+    unique.sort(key=lambda af: (_SEVERITY_RANK[af.finding.severity], af.agent != "review"))
 
     kept = unique[:max_comments]
     kept.sort(key=lambda af: (af.finding.file_path, af.finding.line))
     return GroundingResult(
         kept=kept,
         dropped_ungrounded=ungrounded,
-        dropped_duplicates=len(grounded) - len(unique),
+        dropped_duplicates=len(grounded) - len(unique) - merged,
         dropped_over_cap=len(unique) - len(kept),
+        merged_tests=merged,
     )

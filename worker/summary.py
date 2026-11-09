@@ -13,6 +13,10 @@ def comment_body(af: AttributedFinding) -> str:
     body += f.message
     if f.suggestion:
         body += f"\n\n**Suggestion:**\n{f.suggestion}"
+    for t in af.merged_tests:
+        body += f"\n\n**Suggested test** (test suggestion agent): {t.message}"
+        if t.suggestion:
+            body += f"\n\n{t.suggestion}"
     return body
 
 
