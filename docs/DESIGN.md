@@ -121,7 +121,7 @@ Implementation choices:
   stop mid-review on a 26-file PR and return nothing, so model calls and total run time are
   uncapped; only each HTTP request has a timeout. If one agent fails, the other's findings are
   still posted and the summary says what failed. If both fail, the event is retried.
-- **Prompts** live in `worker/prompts/review_v1.md` and `test_v1.md`. Changing a prompt
+- **Prompts** live in `worker/prompts/review_v2.md` and `test_v2.md` (v1 kept for comparison). Changing a prompt
   means a new file name, so prompt changes show up in diffs and eval reports name the version.
 - **Models** come from config: `DEFAULT_MODEL` (Claude Haiku 4.5, the cheapest) plus
   `REVIEW_AGENT_MODEL` and `TEST_AGENT_MODEL` overrides.

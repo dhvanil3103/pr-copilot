@@ -81,7 +81,7 @@ class Settings(BaseSettings):
     # Review size limits; they bound both token cost and comment noise.
     max_diff_chars: int = 60_000
     max_file_content_chars: int = 20_000
-    max_inline_comments: int = 15
+    max_inline_comments: int = 30
 
     model_prices: dict[str, ModelPrice] = DEFAULT_MODEL_PRICES
 

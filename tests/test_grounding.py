@@ -62,3 +62,25 @@ def test_cap_keeps_most_severe():
     result = ground_findings(findings, FILES, max_comments=2)
     assert {k.finding.severity for k in result.kept} == {Severity.error, Severity.warning}
     assert result.dropped_over_cap == 1
+
+
+def test_test_suggestion_on_same_line_is_merged_into_review_comment():
+    result = ground_findings(
+        [
+            af(
+                "app.py", 10, "Test that a quote in email cannot inject SQL", Severity.error, "test"
+            ),
+            af("app.py", 10, "SQL injection via f-string", Severity.warning),
+            af("app.py", 30, "Test that empty input raises", Severity.info, "test"),
+        ],
+        FILES,
+        max_comments=10,
+    )
+    assert [(k.agent, k.finding.line) for k in result.kept] == [
+        (AgentName.review, 10),
+        (AgentName.test, 30),
+    ]
+    assert [t.message for t in result.kept[0].merged_tests] == [
+        "Test that a quote in email cannot inject SQL"
+    ]
+    assert result.merged_tests == 1 and result.dropped_duplicates == 0

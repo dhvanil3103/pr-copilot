@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 # Bump the file name (review_v2.md) when changing a prompt so evals can compare versions.
-PROMPT_FILES = {AgentName.review: "review_v1.md", AgentName.test: "test_v1.md"}
+PROMPT_FILES = {AgentName.review: "review_v2.md", AgentName.test: "test_v2.md"}
 
 
 def load_prompt(agent: AgentName) -> str:

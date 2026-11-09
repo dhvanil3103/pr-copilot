@@ -40,3 +40,24 @@ def test_comment_body_includes_suggestion_and_agent():
     body = comment_body(AttributedFinding(AgentName.review, finding))
     assert body.startswith("**WARNING · security** (code review agent)")
     assert "ast.literal_eval" in body
+
+
+def test_comment_body_appends_merged_test_suggestion():
+    review = Finding(
+        file_path="a.py",
+        line=1,
+        severity=Severity.error,
+        category="security",
+        message="SQL injection",
+    )
+    test = Finding(
+        file_path="a.py",
+        line=1,
+        severity=Severity.info,
+        category="test",
+        message="Test that a quote cannot inject SQL",
+        suggestion="def test_quote(): ...",
+    )
+    body = comment_body(AttributedFinding(AgentName.review, review, merged_tests=[test]))
+    assert "**Suggested test** (test suggestion agent): Test that a quote cannot inject SQL" in body
+    assert "def test_quote(): ..." in body
