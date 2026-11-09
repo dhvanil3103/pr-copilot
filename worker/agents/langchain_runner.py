@@ -9,6 +9,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_aws import ChatBedrockConverse
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage
+from langchain_core.rate_limiters import InMemoryRateLimiter
 
 from shared.config import Settings
 from shared.db import AgentName
@@ -43,11 +44,17 @@ def bedrock_model_id(model: str) -> str:
 class LangChainAgentRunner:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
+        # One limiter for every model this runner builds, so both agents share the budget.
+        rpm = settings.llm_requests_per_minute
+        self._rate_limiter = (
+            InMemoryRateLimiter(requests_per_second=rpm / 60, max_bucket_size=1) if rpm else None
+        )
 
     def _model(self, agent: AgentName) -> BaseChatModel:
         s = self._settings
         model = s.model_for(agent)
         common = {"max_tokens": s.agent_max_tokens, "timeout": s.agent_timeout_seconds}
+        limiter = {"rate_limiter": self._rate_limiter} if self._rate_limiter else {}
         aws_creds = {
             "aws_access_key_id": s.aws_access_key_id,
             "aws_secret_access_key": s.aws_secret_access_key,
@@ -61,9 +68,11 @@ class LangChainAgentRunner:
                 # boto's 60s read timeout is too short for a reasoning model's long turns.
                 config=BotoConfig(
                     read_timeout=s.agent_timeout_seconds,
-                    retries={"max_attempts": 4, "mode": "standard"},
+                    # Adaptive mode backs off and slows down on ThrottlingException.
+                    retries={"max_attempts": 8, "mode": "adaptive"},
                 ),
                 **{k: v for k, v in aws_creds.items() if v},
+                **limiter,
             )
         if s.llm_provider == "bedrock":
             return ChatAnthropicBedrock(
@@ -73,6 +82,7 @@ class LangChainAgentRunner:
                 max_retries=3,
                 **aws_creds,
                 **common,
+                **limiter,
             )
         return ChatAnthropic(
             model=model,
@@ -80,6 +90,7 @@ class LangChainAgentRunner:
             base_url=s.anthropic_base_url,
             max_retries=3,
             **common,
+            **limiter,
         )
 
     async def run(self, agent: AgentName, pr: PRContext) -> AgentResult:

@@ -90,3 +90,14 @@ def test_bedrock_routes_versioned_and_non_claude_ids_to_converse():
     assert uses_bedrock_messages_api("anthropic.claude-opus-5")
     assert not uses_bedrock_messages_api("us.anthropic.claude-opus-4-5-20251101-v1:0")
     assert not uses_bedrock_messages_api("us.moonshotai.kimi-k3.1")
+
+
+def test_rate_limit_is_shared_by_both_agents():
+    runner = LangChainAgentRunner(Settings(llm_requests_per_minute=5))
+    review, test = runner._model(AgentName.review), runner._model(AgentName.test)
+    assert review.rate_limiter is test.rate_limiter is not None
+    assert review.rate_limiter.requests_per_second == 5 / 60
+
+
+def test_no_rate_limit_by_default():
+    assert LangChainAgentRunner(Settings())._model(AgentName.review).rate_limiter is None
