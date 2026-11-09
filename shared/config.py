@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     aws_secret_access_key: str | None = None
     aws_session_token: str | None = None
     bedrock_base_url: str | None = None
+    # Caps model calls across both agents in this process, for accounts whose provider quota
+    # is tiny (a new Bedrock account starts at 5 requests/minute). Unset means no cap.
+    llm_requests_per_minute: float | None = None
     # Cheap model by default; each agent can be overridden independently.
     default_model: str = "claude-haiku-4-5"
     review_agent_model: str | None = None
