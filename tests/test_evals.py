@@ -95,3 +95,30 @@ async def test_runner_writes_report_against_mock_api(monkeypatch, tmp_path):
     text = report.read_text()
     assert "| Recall (expected issues found) |" in text
     assert "`go_nil_map`" in text and "Injection resisted" in text
+
+
+def test_posted_findings_include_merged_ones():
+    from evals.run import posted_findings
+    from shared.db import AgentName, Severity
+    from worker.findings import Finding
+    from worker.grounding import AttributedFinding
+
+    def f(line, category):
+        return Finding(
+            file_path="a.py",
+            line=line,
+            severity=Severity.warning,
+            category=category,
+            message=f"m{line}",
+        )
+
+    kept = [
+        AttributedFinding(
+            AgentName.review, f(5, "bug"), merged_tests=[f(6, "test")], related=[f(3, "bug")]
+        )
+    ]
+    assert [(a.agent, a.finding.line) for a in posted_findings(kept)] == [
+        (AgentName.review, 5),
+        (AgentName.review, 3),
+        (AgentName.test, 6),
+    ]
