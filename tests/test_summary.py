@@ -61,3 +61,23 @@ def test_comment_body_appends_merged_test_suggestion():
     body = comment_body(AttributedFinding(AgentName.review, review, merged_tests=[test]))
     assert "**Suggested test** (test suggestion agent): Test that a quote cannot inject SQL" in body
     assert "def test_quote(): ..." in body
+
+
+def test_comment_body_lists_related_findings():
+    main = Finding(
+        file_path="a.js",
+        line=7,
+        severity=Severity.error,
+        category="security",
+        message="XSS via customerNote",
+    )
+    other = Finding(
+        file_path="a.js",
+        line=3,
+        severity=Severity.warning,
+        category="security",
+        message="XSS via sku",
+        suggestion="Escape it",
+    )
+    body = comment_body(AttributedFinding(AgentName.review, main, related=[other]))
+    assert "**Also line 3 · WARNING:** XSS via sku" in body and "Escape it" in body

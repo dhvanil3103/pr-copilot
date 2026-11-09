@@ -14,8 +14,11 @@ from worker.diff import ChangedFile
 from worker.findings import Finding
 
 _SEVERITY_RANK = {Severity.error: 0, Severity.warning: 1, Severity.info: 2}
-# Findings this close together with near-identical text are treated as one.
+# Findings this close together with near-identical text are treated as one, and one agent's
+# findings of the same category this close together are posted as one comment.
 _NEAR_LINES = 3
+# A test suggestion this close to a review finding is attached to that comment.
+_TEST_MERGE_LINES = 2
 _SIMILARITY = 0.8
 
 
@@ -23,8 +26,13 @@ _SIMILARITY = 0.8
 class AttributedFinding:
     agent: AgentName
     finding: Finding
-    # Test suggestions folded into this review comment because they target the same line.
+    # Test suggestions folded into this review comment because they target the same code.
     merged_tests: list[Finding] = field(default_factory=list)
+    # Same-agent, same-category findings a few lines away, posted in this one comment.
+    related: list[Finding] = field(default_factory=list)
+
+    def lines(self) -> list[int]:
+        return [self.finding.line, *(r.line for r in self.related)]
 
 
 @dataclass
@@ -34,6 +42,7 @@ class GroundingResult:
     dropped_duplicates: int
     dropped_over_cap: int
     merged_tests: int = 0
+    merged_related: int = 0
 
 
 def _normalize(text: str) -> str:
@@ -57,29 +66,43 @@ def ground_findings(
     ]
     ungrounded = len(findings) - len(grounded)
 
-    # Most severe first, so dedupe keeps the strongest version and the cap
-    # drops the least important comments. Review findings go first so a test suggestion
-    # on the same line can be folded into the review comment instead of posted beside it.
+    # Most severe first, so dedupe keeps the strongest version, comments are anchored on the
+    # most severe finding, and the cap drops the least important. Review findings go first so
+    # a test suggestion can be attached to the review comment for the same code.
     grounded.sort(key=lambda af: (af.agent != "review", _SEVERITY_RANK[af.finding.severity]))
     unique: list[AttributedFinding] = []
-    merged = 0
+    merged = related = 0
     for af in grounded:
-        if any(_is_duplicate(af.finding, kept.finding) for kept in unique):
+        f = af.finding
+        if any(_is_duplicate(f, kept.finding) for kept in unique):
             continue
-        target = next(
+        if af.agent == "test":
+            near_reviews = [
+                kept
+                for kept in unique
+                if kept.agent == "review"
+                and kept.finding.file_path == f.file_path
+                and abs(kept.finding.line - f.line) <= _TEST_MERGE_LINES
+            ]
+            if near_reviews:
+                target = min(near_reviews, key=lambda k: abs(k.finding.line - f.line))
+                target.merged_tests.append(f)
+                merged += 1
+                continue
+        anchor = next(
             (
                 kept
                 for kept in unique
-                if af.agent != kept.agent
-                and kept.agent == "review"
-                and kept.finding.file_path == af.finding.file_path
-                and kept.finding.line == af.finding.line
+                if kept.agent == af.agent
+                and kept.finding.file_path == f.file_path
+                and kept.finding.category.lower() == f.category.lower()
+                and any(abs(line - f.line) <= _NEAR_LINES for line in kept.lines())
             ),
             None,
         )
-        if target is not None:
-            target.merged_tests.append(af.finding)
-            merged += 1
+        if anchor is not None:
+            anchor.related.append(f)
+            related += 1
         else:
             unique.append(af)
     unique.sort(key=lambda af: (_SEVERITY_RANK[af.finding.severity], af.agent != "review"))
@@ -89,7 +112,8 @@ def ground_findings(
     return GroundingResult(
         kept=kept,
         dropped_ungrounded=ungrounded,
-        dropped_duplicates=len(grounded) - len(unique) - merged,
+        dropped_duplicates=len(grounded) - len(unique) - merged - related,
         dropped_over_cap=len(unique) - len(kept),
         merged_tests=merged,
+        merged_related=related,
     )
