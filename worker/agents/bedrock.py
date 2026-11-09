@@ -13,6 +13,9 @@ class ChatAnthropicBedrock(ChatAnthropic):
     """
 
     aws_region: str | None = None
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_session_token: str | None = None
     # Overridable so tests can point at the mock Anthropic server.
     bedrock_base_url: str | None = None
 
@@ -25,6 +28,9 @@ class ChatAnthropicBedrock(ChatAnthropic):
     def _bedrock_params(self) -> dict:
         params: dict = {
             "aws_region": self.aws_region,
+            "aws_access_key": self.aws_access_key_id,
+            "aws_secret_key": self.aws_secret_access_key,
+            "aws_session_token": self.aws_session_token,
             "base_url": self.bedrock_base_url,
             "max_retries": self.max_retries,
             "default_headers": self.default_headers,

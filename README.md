@@ -92,9 +92,17 @@ AWS_SECRET_ACCESS_KEY=...
 ```
 
 `ANTHROPIC_API_KEY` is then unused. Instead of access keys you can set
-`AWS_BEARER_TOKEN_BEDROCK` (a Bedrock API key). The SDK sends API version `2026-10-21`, which
-Bedrock accepts only for Claude 4.7 and later and Sonnet 5 and later, so Haiku 4.5 does not
-work there. The dashboard's cost estimate uses Claude API prices; Bedrock bills its own rates.
+`AWS_BEARER_TOKEN_BEDROCK` (a Bedrock API key).
+
+How the model ID is called:
+
+- Unversioned Claude IDs (`claude-sonnet-5`, `anthropic.claude-opus-5`) use Bedrock's Messages
+  API through the Anthropic SDK. The SDK sends API version `2026-10-21`, which Bedrock accepts
+  only for Claude 4.7 and later and Sonnet 5 and later.
+- Every other ID uses the Bedrock Converse API (`langchain-aws`): versioned Claude IDs such as
+  `us.anthropic.claude-opus-4-5-20251101-v1:0`, and other vendors' models such as
+  `us.moonshotai.kimi-k3.1`. Models served only through an inference profile need the `us.` or
+  `global.` prefix. The prompts were written for Claude, so other models may review differently. The dashboard's cost estimate uses Claude API prices; Bedrock bills its own rates.
 
 ## Tests and evals
 
