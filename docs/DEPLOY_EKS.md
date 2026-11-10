@@ -28,6 +28,10 @@ This creates:
   the load balancer are not free tier and are paid from your credits.
 - Add-ons: VPC CNI, CoreDNS, kube-proxy, EKS Pod Identity Agent, and the EBS CSI driver
   (its IAM role is attached through Pod Identity).
+- The `pr-copilot-worker-bedrock` role, linked to the worker's service account
+  (`pr-copilot-worker`) through EKS Pod Identity. It may only invoke the models in
+  `bedrock_model_ids` (default: Claude Opus 4.5 through the `us.` inference profile), so the
+  cluster holds no AWS keys. See [Claude through Bedrock](#claude-through-bedrock).
 - A GitHub OIDC provider and the `pr-copilot-github-deploy` role (main branch only), with
   an EKS access entry limited to the `pr-copilot` namespace.
 - An AWS Budgets alert emailing you at $25, $50 and $90 of actual spend. Confirm the
@@ -82,9 +86,33 @@ kubectl -n pr-copilot create secret generic pr-copilot-secrets \
   --from-literal=github-webhook-secret='<webhook secret>' \
   --from-literal=github-app-id='<app id>' \
   --from-file=github-private-key=path/to/app.private-key.pem \
-  --from-literal=anthropic-api-key='<sk-ant-...>' \
   --from-literal=postgres-password="$(openssl rand -hex 24)"
 ```
+
+`values-eks.yaml` uses Bedrock, so no model key is needed. To use the Claude API instead, add
+`--from-literal=anthropic-api-key='<sk-ant-...>'` and deploy with
+`--set config.llmProvider=anthropic --set config.defaultModel=claude-haiku-4-5`.
+
+### Claude through Bedrock
+
+`values-eks.yaml` sets `config.llmProvider: bedrock`, `config.awsRegion`, the model, and
+`config.llmRequestsPerMinute: "5"` (a new account's Bedrock quota). Before the first review:
+
+- **Model access:** the model must be usable from the account. Check with
+  `aws bedrock-runtime converse --region us-east-1 --model-id <model>
+  --messages '[{"role":"user","content":[{"text":"hi"}]}]'`.
+- **Same model in both places:** `config.defaultModel` in `values-eks.yaml` must be listed in
+  the Terraform variable `bedrock_model_ids`, or the worker gets `AccessDeniedException`.
+- **Messages API models:** the role allows Converse only (`bedrock:InvokeModel*`). Unversioned
+  Claude IDs such as `claude-sonnet-5` go through bedrock-mantle and also need
+  `bedrock-mantle:CreateInference` added to the policy in `bedrock.tf`.
+- **Quota:** when AWS raises the requests-per-minute quota, delete `llmRequestsPerMinute` from
+  `values-eks.yaml` and redeploy.
+
+To confirm the worker got the role, run
+`kubectl -n pr-copilot exec deploy/prc-pr-copilot-worker -- env | grep AWS_CONTAINER`. Pod
+Identity sets `AWS_CONTAINER_CREDENTIALS_FULL_URI` in pods created after the association, so
+restart the worker if it started before `terraform apply` finished.
 
 Use a hex (URL-safe) Postgres password: it is embedded in the database URL.
 
@@ -157,8 +185,8 @@ Approximate us-east-1 on-demand prices, November 2026. Check the
 | EBS gp3 (2 × 20 GiB roots + 2 × 2 GiB PVCs) | $0.08/GB-month | $0.005 | $0.12 |
 | **Total** | | **≈ $0.21** | **≈ $5.15** |
 
-Not included: data transfer (small at this scale) and Anthropic API usage (tracked per review
-on the dashboard; a typical small PR on Haiku costs well under a cent).
+Not included: data transfer (small at this scale) and model usage (Bedrock or the Claude
+API, tracked per review on the dashboard; on Opus 4.5 a large PR costs about $1).
 
 At about $5 a day, $117 of credits lasts about 22 days if the cluster runs non-stop. **Tear it
 down when you're not using it**, and recreate it with `terraform apply` (about 15 minutes) when

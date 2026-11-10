@@ -11,18 +11,24 @@ image:
 imagePullSecrets: []
 
 # Secret values never live in this chart. Create this Secret yourself (docs/DEPLOY_EKS.md)
-# with the keys: github-webhook-secret, github-app-id, github-private-key,
-# anthropic-api-key, postgres-password.
+# with the keys: github-webhook-secret, github-app-id, github-private-key, postgres-password,
+# and anthropic-api-key when config.llmProvider is anthropic.
 existingSecret: pr-copilot-secrets
 
 config:
   logLevel: INFO
   githubApiUrl: https://api.github.com
+  # "bedrock" calls Claude in Amazon Bedrock with the worker's Pod Identity role (no key).
+  llmProvider: anthropic
   anthropicBaseUrl: https://api.anthropic.com
+  # Empty leaves AWS_REGION unset.
+  awsRegion: ""
+  # Empty means no cap; set it when the provider quota is tiny (Bedrock starts at 5/minute).
+  llmRequestsPerMinute: ""
   defaultModel: claude-haiku-4-5
   reviewAgentModel: ""
   testAgentModel: ""
-  maxInlineComments: "15"
+  maxInlineComments: "30"
   workerMaxAttempts: "3"
 
 api:
@@ -34,6 +40,8 @@ api:
 worker:
   # Must not exceed kafka.partitions: extra consumers in the group would sit idle.
   replicas: 1
+  # Fixed name so Terraform's Pod Identity association (worker_service_account) can match it.
+  serviceAccountName: pr-copilot-worker
   resources:
     requests: { cpu: 100m, memory: 256Mi }
     limits: { cpu: "1", memory: 512Mi }

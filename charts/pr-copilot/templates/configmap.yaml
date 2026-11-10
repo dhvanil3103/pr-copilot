@@ -9,6 +9,13 @@ data:
   KAFKA_BOOTSTRAP_SERVERS: "{{ include "pr-copilot.kafkaHeadless" . }}:9092"
   KAFKA_PARTITIONS: {{ .Values.kafka.partitions | quote }}
   GITHUB_API_URL: {{ .Values.config.githubApiUrl | quote }}
+  LLM_PROVIDER: {{ .Values.config.llmProvider | quote }}
+  {{- with .Values.config.awsRegion }}
+  AWS_REGION: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.config.llmRequestsPerMinute }}
+  LLM_REQUESTS_PER_MINUTE: {{ . | quote }}
+  {{- end }}
   ANTHROPIC_BASE_URL: {{ .Values.config.anthropicBaseUrl | quote }}
   DEFAULT_MODEL: {{ .Values.config.defaultModel | quote }}
   REVIEW_AGENT_MODEL: {{ .Values.config.reviewAgentModel | quote }}

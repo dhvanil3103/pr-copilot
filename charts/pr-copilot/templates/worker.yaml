@@ -1,6 +1,17 @@
 {{- if gt (int .Values.worker.replicas) (int .Values.kafka.partitions) }}
 {{- fail "worker.replicas must not exceed kafka.partitions; extra consumers would be idle" }}
 {{- end }}
+{{- if not (has .Values.config.llmProvider (list "anthropic" "bedrock")) }}
+{{- fail "config.llmProvider must be anthropic or bedrock" }}
+{{- end }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.worker.serviceAccountName }}
+  labels:
+    {{- include "pr-copilot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -21,6 +32,8 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
       {{- include "pr-copilot.imagePullSecrets" . | nindent 6 }}
+      # With llmProvider bedrock, EKS Pod Identity gives this account the Bedrock role.
+      serviceAccountName: {{ .Values.worker.serviceAccountName }}
       securityContext:
         {{- include "pr-copilot.podSecurityContext" . | nindent 8 }}
       # Give an in-flight review time to finish; uncommitted messages are redelivered anyway.
@@ -39,9 +52,11 @@ spec:
             - name: GITHUB_PRIVATE_KEY
               valueFrom:
                 secretKeyRef: { name: {{ .Values.existingSecret }}, key: github-private-key }
+            {{- if eq .Values.config.llmProvider "anthropic" }}
             - name: ANTHROPIC_API_KEY
               valueFrom:
                 secretKeyRef: { name: {{ .Values.existingSecret }}, key: anthropic-api-key }
+            {{- end }}
           # No HTTP server: worker/main.py touches this file every 10 seconds.
           livenessProbe:
             exec:
