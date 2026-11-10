@@ -1,3 +1,13 @@
+locals {
+  # Graviton type names have a "g" after the generation number (t4g, m7g, c8gd); the images are
+  # built for both architectures, so only the node AMI has to match.
+  node_ami_type = (
+    can(regex("^[a-z]+[0-9]+g[a-z]*\\.", var.node_instance_type))
+    ? "AL2023_ARM_64_STANDARD"
+    : "AL2023_x86_64_STANDARD"
+  )
+}
+
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "21.29.0"
@@ -44,7 +54,7 @@ module "eks" {
 
   eks_managed_node_groups = {
     default = {
-      ami_type       = "AL2023_ARM_64_STANDARD"
+      ami_type       = local.node_ami_type
       instance_types = [var.node_instance_type]
       capacity_type  = var.use_spot ? "SPOT" : "ON_DEMAND"
 

@@ -17,14 +17,9 @@ variable "kubernetes_version" {
 }
 
 variable "node_instance_type" {
-  description = "Node instance type. Must be Graviton (arm64), e.g. t4g.medium."
+  description = "Node instance type. Graviton (t4g.medium) or x86 (m7i-flex.large, free tier eligible); the AMI follows it."
   type        = string
   default     = "t4g.medium"
-
-  validation {
-    condition     = can(regex("^[a-z]+[0-9]+g[a-z]*\\.", var.node_instance_type))
-    error_message = "Use a Graviton (arm64) instance type such as t4g.medium; the images and AMI are arm64."
-  }
 }
 
 variable "node_count" {
