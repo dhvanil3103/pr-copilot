@@ -50,7 +50,7 @@ Details and tradeoffs: [docs/DESIGN.md](docs/DESIGN.md).
 | Database | PostgreSQL 16 |
 | Dashboard | React, Vite, TypeScript, nginx (unprivileged) |
 | Packaging | Multi-stage, multi-arch (amd64 + arm64) Docker images on GHCR |
-| Deployment | Helm chart; Terraform for AWS VPC + EKS on Graviton |
+| Deployment | Helm chart; Terraform for AWS VPC + EKS (Graviton or x86 nodes) |
 | CI/CD | GitHub Actions: CI, kind e2e, release, OIDC deploy, evals |
 
 ## Run it locally

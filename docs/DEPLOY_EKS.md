@@ -21,7 +21,11 @@ This creates:
 
 - A VPC with two public subnets in two AZs (no NAT gateway; see DESIGN.md).
 - EKS 1.37 (standard support until December 2027) with upgrade policy `STANDARD`.
-- One managed node group: 2 × `t4g.medium` (Graviton), 20 GiB gp3 root volumes.
+- One managed node group: 2 × `t4g.medium` (Graviton), 20 GiB gp3 root volumes. The node AMI
+  follows `node_instance_type`, so an x86 type works too. On an AWS free plan account, which
+  only allows free tier eligible types, set `node_instance_type = "m7i-flex.large"` and
+  `node_count = 1` (2 vCPU and 8 GiB is enough for the whole app). The EKS control plane and
+  the load balancer are not free tier and are paid from your credits.
 - Add-ons: VPC CNI, CoreDNS, kube-proxy, EKS Pod Identity Agent, and the EBS CSI driver
   (its IAM role is attached through Pod Identity).
 - A GitHub OIDC provider and the `pr-copilot-github-deploy` role (main branch only), with
@@ -40,7 +44,7 @@ time), or keep it at your IP and deploy from your laptop.
 
 ```bash
 $(terraform output -raw update_kubeconfig_command)
-kubectl get nodes        # two arm64 nodes, Ready
+kubectl get nodes        # node_count nodes, Ready
 ```
 
 ## 3. Install cluster-wide pieces (once, as admin)
