@@ -82,7 +82,9 @@ async def test_full_review_posts_grounded_comments_and_records_usage(session_fac
     assert len(github.posted) == 1
     posted = github.posted[0]
     assert posted.commit_sha == "abc"
-    assert [(c.path, c.line) for c in posted.comments] == [("app.py", 2), ("app.py", 3)]
+    # The test suggestion one line below the review finding is posted inside that comment.
+    assert [(c.path, c.line) for c in posted.comments] == [("app.py", 2)]
+    assert "Test that x is escaped" in posted.comments[0].body
     # Lockfile never reaches the agents.
     assert [f.path for f in runner.calls[0][1].files] == ["app.py"]
 
@@ -93,10 +95,7 @@ async def test_full_review_posts_grounded_comments_and_records_usage(session_fac
     # Two agents x (1000 in at $1/M + 200 out at $5/M) on the default Haiku model.
     assert float(review.estimated_cost_usd) == pytest.approx(0.004)
     assert "review summary" in review.summary
-    assert {(c.agent, c.line, c.posted) for c in comments} == {
-        (AgentName.review, 2, True),
-        (AgentName.test, 3, True),
-    }
+    assert [(c.agent, c.line, c.posted) for c in comments] == [(AgentName.review, 2, True)]
 
 
 async def test_redelivered_event_is_not_processed_twice(session_factory):
