@@ -80,3 +80,15 @@ variable "budget_start" {
   type        = string
   default     = "2026-11-01_00:00"
 }
+
+variable "bedrock_model_ids" {
+  description = "Bedrock model or inference profile IDs the worker may invoke (match config.defaultModel in values-eks.yaml)."
+  type        = list(string)
+  default     = ["us.anthropic.claude-opus-4-5-20251101-v1:0"]
+}
+
+variable "worker_service_account" {
+  description = "Kubernetes service account of the worker; must match worker.serviceAccountName in the chart."
+  type        = string
+  default     = "pr-copilot-worker"
+}

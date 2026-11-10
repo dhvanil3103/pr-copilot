@@ -19,3 +19,8 @@ output "github_deploy_role_arn" {
 output "account_id" {
   value = data.aws_caller_identity.current.account_id
 }
+
+output "worker_bedrock_role_arn" {
+  description = "Role the worker assumes through Pod Identity to call Bedrock."
+  value       = aws_iam_role.worker_bedrock.arn
+}

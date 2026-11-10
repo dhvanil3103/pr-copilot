@@ -1,6 +1,14 @@
-# Production on EKS (Graviton nodes). The deploy workflow sets image.tag to the commit SHA.
+# Production on EKS. The deploy workflow sets image.tag to the commit SHA.
 image:
   registry: ghcr.io/dhvanil3103
+
+config:
+  # Claude through Bedrock; the worker's role comes from infra/terraform/bedrock.tf.
+  llmProvider: bedrock
+  awsRegion: us-east-1
+  defaultModel: us.anthropic.claude-opus-4-5-20251101-v1:0
+  # Matches the account's current Bedrock quota; remove once the increase is approved.
+  llmRequestsPerMinute: "5"
 
 persistence:
   # Created once by an admin from infra/k8s/gp3-storageclass.yaml.

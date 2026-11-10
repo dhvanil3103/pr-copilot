@@ -92,7 +92,8 @@ AWS_SECRET_ACCESS_KEY=...
 ```
 
 `ANTHROPIC_API_KEY` is then unused. Instead of access keys you can set
-`AWS_BEARER_TOKEN_BEDROCK` (a Bedrock API key).
+`AWS_BEARER_TOKEN_BEDROCK` (a Bedrock API key). On EKS the worker uses a Pod Identity role
+instead of keys; see [docs/DEPLOY_EKS.md](docs/DEPLOY_EKS.md#claude-through-bedrock).
 
 How the model ID is called:
 
